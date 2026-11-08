@@ -1,0 +1,58 @@
+{
+  "name": "ai-sherpa-dino-grade1",
+  "account_id": "82356ad65ade9e0a481f823ca538d437",
+  "main": "./modules/entry.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "assets": {
+    "directory": "./assets",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "GAME_RATE_LIMIT",
+        "class_name": "GameRateLimit"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "grade1-ai-v1",
+      "new_sqlite_classes": [
+        "GameRateLimit"
+      ]
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "CLASSROOM_DB",
+      "database_name": "ai-sherpa-dino-grade1-data",
+      "database_id": "5d8c762a-3d66-4ce8-851e-18b373c9d695"
+    },
+    {
+      "binding": "ARTWORK_DB",
+      "database_name": "ai-sherpa-dino-artworks",
+      "database_id": "e23ecc9b-0b76-4cc8-8b8a-39ebc5f4c48a"
+    },
+    {
+      "binding": "OTHER_CLASSROOM_DB",
+      "database_name": "ai-sherpa-dino-classroom-data",
+      "database_id": "229a7b9d-3e99-4f0c-b1d7-1aa89041beae"
+    }
+  ],
+  "vars": {
+    "OTHER_CLASSROOM_ORIGIN": "https://ai-sherpa-dino-classroom.yoon2566.workers.dev"
+  },
+  "no_bundle": true
+}

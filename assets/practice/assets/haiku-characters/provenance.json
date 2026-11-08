@@ -1,0 +1,80 @@
+{
+  "source": "character-tests/run-2026-11-01T12-24-14-485Z",
+  "method": "Browser screenshots cropped from actual generated Canvas at waiting state; no image regeneration or retouching",
+  "canvasRegion": {
+    "x": 0,
+    "y": 70,
+    "width": 75,
+    "height": 80
+  },
+  "modelRequest": {
+    "model": "anthropic/claude-haiku-5.5",
+    "effort": "high",
+    "reasoningEnabled": false
+  },
+  "items": [
+    {
+      "id": "robot",
+      "sourceFile": "character-tests/run-2026-11-01T12-24-14-485Z/robot.html",
+      "sourceSha256": "026d6a55a836cdcd8491e053772c14d09ef3ec083608a0713bc389ffbd18f0bf",
+      "image": "robot.png",
+      "imageBytes": 3130
+    },
+    {
+      "id": "clown",
+      "sourceFile": "character-tests/run-2026-11-01T12-24-14-485Z/clown.html",
+      "sourceSha256": "8c784b6a6cdaeaa4ac4def720a6abd8ebe11daa727f69f05d6245b469ece4581",
+      "image": "clown.png",
+      "imageBytes": 3626
+    },
+    {
+      "id": "zebra",
+      "sourceFile": "character-tests/run-2026-11-01T12-24-14-485Z/zebra.html",
+      "sourceSha256": "301ca0d98c6a91018d004131c5839a503785d2638bfdcc8d3541b8f84e580f12",
+      "image": "zebra.png",
+      "imageBytes": 2882
+    },
+    {
+      "id": "cat",
+      "sourceFile": "character-tests/run-2026-11-01T12-24-14-485Z/cat.html",
+      "sourceSha256": "f72ab632f5f839e2d74735f9c541a71fac22a40e8ddda786b9175984479f0f84",
+      "image": "cat.png",
+      "imageBytes": 2953
+    },
+    {
+      "id": "rabbit",
+      "sourceFile": "character-tests/run-2026-11-01T12-24-14-485Z/rabbit.html",
+      "sourceSha256": "aca769bac3ddff87807ada161d406a11a09ac2ccc35653fe2ed6094ae9236290",
+      "image": "rabbit.png",
+      "imageBytes": 1561
+    },
+    {
+      "id": "frog",
+      "sourceFile": "character-tests/run-2026-11-01T12-24-14-485Z/frog.html",
+      "sourceSha256": "11969290590dab746e59fd56b9b689d42d3488d960f38a5f2d1709a33c3efee9",
+      "image": "frog.png",
+      "imageBytes": 3012
+    },
+    {
+      "id": "fox",
+      "sourceFile": "character-tests/run-2026-11-01T12-24-14-485Z/fox.html",
+      "sourceSha256": "09bef38ee242ccee64de25a1b229958e279c6892c02c1010cef26485d036588e",
+      "image": "fox.png",
+      "imageBytes": 2489
+    },
+    {
+      "id": "panda",
+      "sourceFile": "character-tests/run-2026-11-01T12-24-14-485Z/panda.html",
+      "sourceSha256": "5cef80982924c64ac989f1371ef2559ba0291a49e7300b5e0e7bf3ca316cc234",
+      "image": "panda.png",
+      "imageBytes": 2929
+    },
+    {
+      "id": "alien",
+      "sourceFile": "character-tests/run-2026-11-01T12-24-14-485Z/alien.html",
+      "sourceSha256": "b6c8a310c64f474174ebe7e21676e01c5963275a8adc185a76598ae10b52c4e8",
+      "image": "alien.png",
+      "imageBytes": 2729
+    }
+  ]
+}

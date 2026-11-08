@@ -1,0 +1,48 @@
+.mobile-tabs{display:none}
+@media (max-width:1100px), (pointer:coarse) and (max-width:1400px){
+  body{--tabs-height:calc(78px + env(safe-area-inset-bottom,0px));padding:10px 12px calc(var(--tabs-height) + 8px)}
+  .topbar{min-height:56px;padding:8px 12px;gap:12px;border-radius:20px}
+  .brand{gap:9px}.brand strong{font-size:22px}.brand-star{width:26px;height:26px}
+  .topbar h1{display:none}
+  .save-button{min-height:40px;padding:7px 12px;font-size:15px;border-radius:13px;gap:6px}
+  .save-button .icon{width:19px;height:19px}
+  main{display:block;position:relative;margin-top:12px}
+  main>.panel{position:absolute;inset:0;width:100%;height:100%}
+  main>[aria-hidden=true]{visibility:hidden;pointer-events:none}
+  main>[aria-hidden=false]{visibility:visible}
+  .chat-heading{width:100%;max-width:724px;margin:0 auto;min-height:58px;padding:16px 22px 8px}
+  #conversation{padding:2px 22px 16px}
+  #conversation>article,#conversation>.user{max-width:680px;margin-left:auto;margin-right:auto}
+  .step-message h2{font-size:31px}.step-message p{font-size:17px}
+  .chat-tip{width:calc(100% - 32px);max-width:692px;margin:0 auto 14px;font-size:14px}
+  #preview-panel{--preview-width:min(860px,max(280px,calc((100dvh - 420px)*2.3)));padding:18px;overflow:auto;overscroll-behavior:contain}
+  .preview-heading{width:100%;max-width:var(--preview-width);min-height:50px;margin:0 auto;gap:10px}
+  .preview-heading h2{font-size:28px;gap:10px}
+  .preview-heading .pill{font-size:13px;padding:6px 12px}
+  .gamepad-icon{width:31px;height:28px}
+  .icon-button{min-width:44px;min-height:44px;padding:8px;border-radius:14px}
+  .screen{flex:0 0 auto;width:100%;max-width:var(--preview-width);margin:0 auto;padding:16px 0}
+  .game-frame{border-radius:20px}
+  #busy{font-size:16px;padding:14px;gap:8px}
+  .preview-footer{display:flex;flex-direction:column;gap:12px;width:100%;max-width:var(--preview-width);margin:0 auto}
+  .play-tip{min-height:50px;padding:10px 14px;font-size:16px}
+  .play-tip>span:first-child{font-size:27px}
+  .jump-button{width:100%;min-height:60px;font-size:24px;padding:12px 20px}
+  .mobile-tabs{display:flex;position:fixed;bottom:0;left:12px;right:12px;height:var(--tabs-height);z-index:10;justify-content:center;align-items:center;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));background:#fff;border-radius:22px 22px 0 0}
+  .mobile-tabs button{display:flex;justify-content:center;align-items:center;gap:10px;flex:1;max-width:340px;height:54px;border:0;border-radius:16px;background:#edf5ff;color:#526f96;font-size:20px;font-weight:800}
+  .mobile-tabs button[aria-selected=true]{color:white;background:linear-gradient(#35ad60,#219a55);box-shadow:0 3px 0 #168348}
+  .tab-icon,.mobile-tabs .play-icon{width:27px;height:27px;flex-shrink:0}
+  .tab-icon circle{fill:#edf5ff}[aria-selected=true] .tab-icon circle{fill:var(--green)}
+}
+@media(max-width:480px){
+  body{padding-left:10px;padding-right:10px}.panel{border-radius:23px}
+  .topbar{gap:6px;padding:8px 10px}.brand strong{font-size:20px}.brand-star{width:24px;height:24px}
+  .save-button{font-size:14px;padding:7px 9px}
+  .chat-heading{min-height:56px;padding:14px 16px 8px}.pill{padding:5px 16px;font-size:15px}
+  #conversation{padding:2px 16px 14px}.step-message h2{font-size:28px}.step-message p{font-size:16px;margin-bottom:15px}
+  .grid{gap:8px}.grid button{min-height:clamp(108px,calc((100dvh - 410px)/3),148px);padding:8px 4px;border-radius:14px}.choice-label{font-size:15px}
+  .chat-tip{gap:8px;font-size:12px;padding:10px}
+  #preview-panel{padding:14px}.preview-heading{gap:8px}.preview-heading h2{font-size:24px;gap:7px}.preview-heading .pill{font-size:12px;padding:6px 10px}.gamepad-icon{width:27px;height:25px}
+  .play-tip{font-size:14px;gap:7px}.mobile-tabs{left:10px;right:10px}
+}
+@media(max-width:360px){.brand{gap:5px}.brand strong{font-size:18px}.brand-star{width:20px;height:20px}.save-button{font-size:13px}.step-message h2{font-size:25px}#conversation{padding-left:12px;padding-right:12px}.choice-label{font-size:14px}.preview-heading h2{font-size:21px}}

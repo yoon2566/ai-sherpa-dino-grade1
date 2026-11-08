@@ -1,0 +1,5 @@
+.grid button.character-choice{gap:3px;overflow:hidden;background:#fffefa}
+.grid button.character-choice img{display:block;width:auto;height:clamp(68px,10dvh,98px);max-width:100%;object-fit:contain;image-rendering:pixelated;pointer-events:none}
+.grid button.character-choice:hover:not(:disabled){background:#f1fbef}
+.grid button.character-choice[aria-pressed=true]{background:#edf9e9}
+@media(max-width:480px){.grid button.character-choice img{height:clamp(72px,11dvh,98px)}}

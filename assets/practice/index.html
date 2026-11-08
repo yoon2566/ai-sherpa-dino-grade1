@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#e4f4ff">
+  <title>나만의 공룡게임</title>
+  <link rel="stylesheet" href="chat.css">
+  <link rel="stylesheet" href="mobile.css">
+  <link rel="stylesheet" href="workshop-controls.css">
+<link rel="stylesheet" href="/practice-layout.css"><link rel="stylesheet" href="grade1-pixel.css"></head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-star" viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2 4.5 9 10 1.5-7.2 7 1.7 10-9-4.7-9 4.7 1.7-10-7.2-7 10-1.5Z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <strong>AI 셰르파</strong>
+    </div>
+    <h1>나만의 공룡게임</h1>
+    <button id="download" type="button" class="save-button">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>
+      게임 저장
+    </button>
+  </header>
+  <main>
+    <aside id="chat-panel" class="panel" aria-label="AI 채팅">
+      <div class="panel-heading chat-heading"><span id="progress" class="pill">게임 해보기</span></div>
+      <div id="conversation" role="log" aria-label="함께 만드는 이야기" aria-live="polite"></div>
+      <footer class="chat-tip">
+        <svg class="bulb-icon" viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1a9 9 0 0 0-6 15.7c1.5 1.3 2 2 2 4.3h8c0-2.3.5-3 2-4.3A9 9 0 0 0 12 1Z" fill="currentColor"/><path d="M9 24h6m-5 3h4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M6 9a6 6 0 0 1 6-5" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>그림을 고르면 AI가 게임을 바꿔요.</span>
+      </footer>
+    </aside>
+    <section id="preview-panel" class="panel" aria-label="게임 미리보기">
+      <div class="panel-heading preview-heading">
+        <h2>
+          <svg class="gamepad-icon" viewBox="0 0 40 32" aria-hidden="true"><path d="M10 4h20c5 0 8 16 8 21 0 6-6 6-11-1H13C8 31 2 31 2 25 2 20 5 4 10 4Z" fill="currentColor"/><path d="M12 10v10m-5-5h10" stroke="white" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="12" r="2" fill="white"/><circle cx="32" cy="17" r="2" fill="white"/></svg>
+          내 게임
+        </h2>
+        <span id="status" class="pill" role="status">미리보기</span>
+        <button id="restart" type="button" class="icon-button" aria-label="다시 시작" title="다시 시작"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></button>
+      </div>
+      <div class="screen"><div class="game-frame">
+        <iframe id="game" title="내 게임 미리보기" sandbox="allow-scripts"></iframe>
+        <div id="busy" hidden>게임을 바꾸고 있어요…</div>
+      </div></div>
+      <footer class="preview-footer">
+        <div class="play-tip"><span aria-hidden="true">👆</span><span>화면을 톡! 누르면 점프해요.</span></div>
+        <button id="jump" type="button" class="primary jump-button"><svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3a1 1 0 0 1 1.5-.8l14 9a1 1 0 0 1 0 1.6l-14 9A1 1 0 0 1 6 21Z" fill="currentColor"/></svg>시작 / 점프</button>
+      </footer>
+    </section>
+  </main>
+  <nav class="mobile-tabs" role="tablist" aria-label="화면 전환">
+    <button type="button" id="chat-tab" role="tab" aria-controls="chat-panel" aria-selected="true"><svg class="tab-icon" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3C7 3 2 7 2 13c0 3 2 6 5 8l-1 5 6-3h2c7 0 12-4 12-10S21 3 14 3Z" fill="currentColor"/><circle cx="8" cy="13" r="1.5"/><circle cx="14" cy="13" r="1.5"/><circle cx="20" cy="13" r="1.5"/></svg>채팅</button>
+    <button type="button" id="preview-tab" role="tab" aria-controls="preview-panel" aria-selected="false" tabindex="-1"><svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3a1 1 0 0 1 1.5-.8l14 9a1 1 0 0 1 0 1.6l-14 9A1 1 0 0 1 6 21Z" fill="currentColor"/></svg>미리보기</button>
+  </nav>
+  <script src="mobile-tabs.js"></script>
+  <script src="game-api.js"></script>
+  <script src="grade1-pixel.js"></script><script src="grade1-abilities.js"></script><script src="classroom-work-client.js"></script><script src="game-sharing.js"></script>
+  <script src="chat.js"></script>
+<script src="/duck-control.js"></script><script src="/game-expand.js"></script><script src="/embedded-practice.js"></script></body>
+</html>

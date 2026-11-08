@@ -1,0 +1,26 @@
+[
+  {
+    "id": "cover",
+    "title": "표지"
+  },
+  {
+    "id": "goals",
+    "title": "학습 목표"
+  },
+  {
+    "id": "vibe",
+    "title": "바이브 코딩이란?"
+  },
+  {
+    "id": "play",
+    "title": "게임 해보기"
+  },
+  {
+    "id": "practice",
+    "title": "게임 수정하기"
+  },
+  {
+    "id": "board",
+    "title": "게임 게시판"
+  }
+]

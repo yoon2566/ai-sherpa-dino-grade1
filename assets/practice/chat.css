@@ -1,0 +1,69 @@
+:root{color-scheme:light;--navy:#102c53;--muted:#647e9f;--blue:#1868b8;--line:#d8ebfc;--green:#209e58;--green-dark:#147e43;--green-soft:#e4f6e3;--radius:26px}
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;height:100dvh;display:flex;flex-direction:column;overflow:hidden;padding:12px 20px 18px;color:var(--navy);background:linear-gradient(135deg,#e0f3ff,#eaf6ff 60%,#e0f2ff);font-family:'Noto Sans KR','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased;word-break:keep-all}
+button{cursor:pointer;font:inherit;font-weight:700;color:var(--navy);background:#fff;border:2px solid var(--line);border-radius:16px;padding:12px 18px;min-height:48px;touch-action:manipulation;transition:background .16s,border-color .16s,box-shadow .16s,transform .16s}
+button:hover:not(:disabled){background:#f1f8ff;border-color:#9ac8ed}
+button:active:not(:disabled){transform:translateY(2px)}
+button:focus-visible{outline:3px solid #1d68bb;outline-offset:3px}
+button:disabled{opacity:.55;cursor:default}
+.icon{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.topbar{min-height:64px;flex-shrink:0;display:flex;align-items:center;gap:24px;padding:8px 12px 8px 24px;border-radius:24px;background:#ffffffed;box-shadow:0 3px 0 #d4eaff}
+.brand{display:flex;align-items:center;gap:12px;white-space:nowrap;color:var(--blue)}
+.brand strong{font-size:clamp(22px,1.8vw,30px);font-weight:900;letter-spacing:-.7px}
+.brand-star{width:29px;height:29px;color:#ffc52d;flex-shrink:0}
+.topbar h1{font-size:clamp(20px,1.8vw,30px);font-weight:900;letter-spacing:-.7px;margin:0;padding-left:24px;border-left:2px solid var(--line)}
+.save-button{margin-left:auto;display:flex;align-items:center;gap:9px;color:#235fa7;border-color:#79aeed;box-shadow:0 3px 0 #e2efff;font-size:17px;padding:9px 20px;white-space:nowrap}
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(350px,34.6%) minmax(0,1fr);gap:16px;margin-top:16px}
+.panel{display:flex;flex-direction:column;min-height:0;min-width:0;background:#fff;border-radius:var(--radius);overflow:hidden}
+.panel-heading{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.chat-heading{min-height:62px;padding:16px 22px 10px}
+.pill{display:inline-flex;align-items:center;justify-content:center;border-radius:99px;padding:6px 18px;background:var(--green-soft);color:var(--green-dark);font-size:16px;font-weight:800;white-space:nowrap}
+#conversation{flex:1;overflow:auto;overscroll-behavior:contain;padding:2px 22px 18px;scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:#c5dced transparent}
+article{margin:0 0 26px}
+article:before{content:'✦ AI 셰르파';display:block;color:var(--blue);font-size:13px;font-weight:800;margin-bottom:12px}
+article.step-message{min-height:100%;margin-bottom:24px}
+article.step-message:before{display:none}
+h2{font-size:28px;line-height:1.4;letter-spacing:-1px;margin:8px 0;font-weight:900}
+.step-message h2{font-size:clamp(27px,2.2vw,38px);margin:0 0 6px}
+p{line-height:1.65;color:var(--muted);font-size:16px;margin:8px 0 18px}
+.step-message p{font-size:17px;font-weight:600;margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.grid.few-choices{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:clamp(104px,15.5dvh,148px);padding:10px 6px;background:#fffefa;border:2px solid var(--line);border-radius:17px;position:relative}
+.choice-icon{display:flex;align-items:center;justify-content:center;min-height:52px;font:42px 'Segoe UI Emoji',sans-serif}
+.choice-icon.wide{font-size:23px;letter-spacing:-4px}
+.choice-label{display:block;color:var(--navy);font-size:16px;font-weight:800;line-height:1.35}
+.grid button:hover:not(:disabled){border-color:#75bd88;background:#f1fbef;box-shadow:0 3px 0 #e2f1dd;transform:translateY(-2px)}
+.grid button:disabled{opacity:.72}
+.grid button[aria-pressed=true]{background:#edf9e9;border-color:#34a65b;box-shadow:0 0 0 1px #34a65b;opacity:1}
+.grid button[aria-pressed=true]:after{content:'✓';position:absolute;right:6px;top:6px;display:grid;place-items:center;width:22px;height:22px;background:var(--green);border-radius:50%;font:800 14px sans-serif;color:#fff}
+.user{margin:18px 0 24px 28px;padding:16px 18px;background:#edf6ff;border:1px solid #deedfb;border-radius:20px 20px 4px 20px;font-size:16px;line-height:1.6}
+.primary{background:linear-gradient(#35ad60,#239a56);border-color:#2ca15a;color:#fff;font-weight:800;box-shadow:0 4px 0 #168348}
+.primary:hover:not(:disabled){background:linear-gradient(#299e55,#16864a);border-color:#198749}
+.primary:active:not(:disabled){box-shadow:0 1px 0 #168348}
+.actions{display:flex;gap:10px;flex-wrap:wrap;padding-bottom:5px}
+.actions button{font-size:16px}
+.chat-tip{display:flex;align-items:center;gap:10px;margin:0 16px 16px;padding:11px 14px;background:#fff8df;border-radius:16px;font-size:14px;font-weight:600;flex-shrink:0}
+.bulb-icon{width:23px;height:28px;color:#ffbd05;flex-shrink:0}
+#preview-panel{padding:18px}
+.preview-heading{min-height:52px;padding:0 2px}
+.preview-heading h2{display:flex;align-items:center;gap:13px;white-space:nowrap;margin:0;font-size:clamp(26px,2.2vw,38px)}
+.gamepad-icon{width:36px;height:32px;color:#30a759;flex-shrink:0}
+.preview-heading .pill{margin-left:auto;font-size:14px;padding:7px 16px}
+.icon-button{display:grid;place-items:center;padding:10px;min-width:48px;background:#f4f9ff;color:#3d6bc0}
+.screen{display:flex;align-items:center;justify-content:center;min-height:0;flex:1;padding:18px 0}
+.game-frame{position:relative;width:100%;aspect-ratio:23 / 10;border:2px solid var(--line);border-radius:23px;background:#fafaf7;overflow:hidden}
+iframe{display:block;width:100%;height:100%;border:0;background:#fafaf7}
+#busy{position:absolute;inset:0;background:#f6faf3ed;display:flex;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:var(--green-dark);font-weight:700;font-size:18px}
+#busy:before{content:'';width:20px;height:20px;border:3px solid #cfe8cc;border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+#busy[hidden]{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.preview-footer{display:flex;align-items:stretch;justify-content:space-between;gap:16px;padding-bottom:5px;flex-shrink:0}
+.play-tip{display:flex;align-items:center;justify-content:center;gap:10px;background:#edf6ff;border-radius:16px;padding:14px 16px;font-size:clamp(13px,1.1vw,19px);font-weight:700;flex:1}
+.play-tip>span:first-child{font:30px 'Segoe UI Emoji',sans-serif}
+.jump-button{display:flex;align-items:center;justify-content:center;gap:14px;min-width:clamp(190px,19vw,300px);min-height:64px;font-size:clamp(21px,1.8vw,30px);border-radius:18px;padding:14px 22px;white-space:nowrap}
+.play-icon{width:26px;height:26px;flex-shrink:0}
+.error{color:#a82c39}
+@media(max-height:680px) and (min-width:1101px){.topbar{min-height:56px}main{margin-top:12px}.chat-heading{min-height:50px;padding-top:10px}.grid button{min-height:94px}.step-message h2{font-size:27px}.screen{overflow:auto}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

@@ -1,0 +1,78 @@
+@font-face{font-family:Lounge;src:url(/lesson-font.ttf) format('truetype');font-weight:100 900;font-display:swap}
+body.embedded{padding:0;background:transparent;font-family:Lounge,'Malgun Gothic',sans-serif}.embedded>.topbar{display:none}.embedded main{margin:0;gap:18px;grid-template-columns:minmax(330px,35%) minmax(0,1fr)}.embedded .panel{border-radius:28px}.embedded .chat-heading{padding-top:20px}.embedded .step-message h2{font-size:clamp(26px,2.4vw,40px)}.embedded .choice-label{font-size:18px}.embedded .choice-icon{font-size:48px}.embedded .preview-heading .save-button{font-size:15px;min-height:44px;padding:8px 12px;margin-left:auto}.embedded .preview-heading #status{display:none}.embedded .screen{padding:15px 0}.embedded .game-frame{aspect-ratio:auto;flex:1;height:100%;max-height:640px;background:#fafaf7}.embedded #preview-panel{padding:22px}.embedded .grid button{min-height:clamp(94px,15dvh,144px)}.embedded .preview-footer{flex-wrap:wrap}.embedded .play-tip{font-size:16px;padding:10px}.embedded .jump-button{min-width:180px;font-size:23px;min-height:60px}.embedded .chat-tip{font-size:15px}.embedded .mobile-tabs{margin:10px 0 0}
+@media(max-width:1100px){.embedded main{display:flex}.embedded .mobile-tabs{flex-shrink:0}.embedded .screen{flex:none}.embedded .game-frame{aspect-ratio:23/10;height:auto;min-height:180px}.embedded #preview-panel{padding:15px}.embedded .preview-heading .save-button{font-size:13px}.embedded .preview-heading .save-button svg{display:none}.embedded .grid button{min-height:105px}}
+@media(max-width:480px){.embedded .preview-heading h2{font-size:25px}.embedded .choice-icon{font-size:43px}.embedded .chat-tip{font-size:12px}.embedded .grid{gap:8px}.embedded #conversation{padding:2px 16px 18px}.embedded .preview-heading{gap:8px}.embedded .jump-button{width:100%}}
+@media(max-width:1100px),(pointer:coarse) and (max-width:1400px){body.embedded{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))}.embedded .mobile-tabs{left:0;right:0;margin:0}.embedded main{display:block}.embedded .preview-heading{max-width:none}.embedded .screen,.embedded .preview-footer{max-width:none}}
+.embedded .preview-heading .gamepad-icon{display:none}.embedded .preview-heading h2:before{content:'★';color:#ffca27;font-size:1.1em}.embedded .chat-heading{min-height:54px;padding:12px 22px 8px}.embedded .choice-icon{font-size:43px;min-height:44px}.embedded .choice-label{font-size:16px}
+@media(min-width:1101px){.embedded .step-message{height:100%;min-height:100%;display:flex;flex-direction:column}.embedded .step-message .grid{flex:1;min-height:270px;grid-auto-rows:minmax(0,1fr)}.embedded .step-message .grid button{min-height:0;padding:6px 4px}.embedded .step-message h2{font-size:30px}.embedded .step-message p{font-size:16px;margin-bottom:12px}.embedded .chat-tip{margin-bottom:12px;font-size:14px}}
+
+/* Keep the scrollable lesson, hint and tabs in separate layout rows. */
+.embedded #conversation{min-height:0;scroll-padding:12px;scrollbar-gutter:stable}
+@media(max-width:1100px),(pointer:coarse) and (max-width:1400px){
+  body.embedded{padding:0}
+  .embedded main{flex:1;min-height:0;margin:0}
+  .embedded .mobile-tabs{position:static;flex:0 0 auto;height:auto;min-height:66px;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));margin:0;border-top:1px solid var(--line)}
+  .embedded .mobile-tabs button{height:48px;min-height:48px}
+  .embedded .chat-heading{min-height:46px;padding:8px 22px 6px}
+  .embedded #conversation{padding-bottom:18px}
+  .embedded .step-message{display:block;height:auto;min-height:0;margin-bottom:24px}
+  .embedded .step-message h2{font-size:26px}
+  .embedded .step-message p{font-size:16px;margin-bottom:10px}
+  .embedded .step-message .grid{min-height:0;grid-auto-rows:auto;gap:8px}
+  .embedded .step-message .grid button{min-height:clamp(76px,calc((100dvh - 270px)/4),108px);padding:6px 4px;gap:3px}
+  .embedded .choice-icon{font-size:32px;min-height:34px}
+  .embedded .choice-label{font-size:16px}
+  .embedded .chat-tip{min-height:36px;padding:6px 12px;margin:0 auto 8px;font-size:13px;position:relative}
+  .embedded .slider-choice{gap:12px;padding:16px;margin-top:12px}
+  .embedded .slider-choice output{font-size:32px}
+  .embedded .speed-number{margin-top:-8px}
+  .embedded .finish-button{margin-top:12px}
+  .embedded #preview-panel{padding:12px;overflow:auto}
+  .embedded .preview-heading{flex-wrap:wrap;gap:8px;min-height:48px}
+  .embedded .preview-heading h2{font-size:25px}
+  .embedded .screen{padding:10px 0}
+  .embedded .game-frame{flex:none;height:clamp(150px,calc(100dvh - 280px),420px);min-height:150px;aspect-ratio:auto}
+  .embedded .preview-footer{gap:8px}
+  .embedded .play-tip{min-height:36px;padding:6px 10px;font-size:14px}
+  .embedded .jump-button{min-height:48px;font-size:21px;padding:8px 16px}
+  .embedded .custom-message textarea{min-height:110px}
+  .embedded .custom-message .example{padding:10px;margin-bottom:10px}
+}
+@media(min-width:900px) and (max-width:1100px),(pointer:coarse) and (min-width:900px) and (max-width:1400px){
+  .embedded .step-message .grid:not(.few-choices){grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+.play-controls{display:flex;gap:10px;flex:1;min-width:0}
+.play-controls .jump-button,.play-controls .duck-button{flex:1;min-width:0;width:auto;min-height:48px;white-space:nowrap;font-size:21px;padding:8px 16px}
+.duck-button{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:#edf5ff;border-color:#93bde1}
+.duck-button[aria-pressed=true]{background:#cce5ff;border-color:#347bb7;box-shadow:inset 0 2px 4px #15334f33}
+@media(max-width:1100px),(pointer:coarse) and (max-width:1400px){.play-controls{flex:none;width:100%}.play-controls .jump-button,.play-controls .duck-button{min-width:0;width:auto;font-size:20px}}
+#expand-game{min-height:44px;white-space:nowrap;font-size:15px;padding:8px 12px}
+#preview-panel.expanded-game{position:fixed!important;inset:0;width:100%;height:100dvh;z-index:100;border-radius:0;padding:16px!important;display:flex!important;visibility:visible!important;overflow:auto}
+#preview-panel.expanded-game .screen{flex:1!important;min-height:150px;max-width:none;width:100%}
+#preview-panel.expanded-game .game-frame{height:100%!important;max-height:none;aspect-ratio:auto;flex:1}
+#preview-panel.expanded-game .preview-heading,#preview-panel.expanded-game .preview-footer{max-width:none;width:100%}
+#preview-panel.expanded-game .preview-footer{flex:none}
+
+/* Lesson preview controls: hint above a single row. */
+.embedded .preview-footer{flex-direction:column;gap:12px}
+.embedded .play-controls{display:flex;flex:none;width:100%;gap:12px;flex-wrap:nowrap}
+.embedded .play-controls .jump-button{flex:3 1 0;min-width:0;width:auto}
+.embedded .play-controls .duck-button{flex:1 1 0;min-width:140px;width:auto;min-height:48px;border-radius:18px;font-size:21px;font-weight:700;padding:8px 16px;color:#183653}
+
+.embedded .play-controls .jump-button,.embedded .play-controls .duck-button{font-size:21px;border-radius:18px;font-weight:700}
+@media(max-width:1100px),(pointer:coarse) and (max-width:1400px){.embedded .play-controls .jump-button,.embedded .play-controls .duck-button{font-size:20px}}
+.embedded .play-controls{display:grid;grid-template-columns:minmax(0,3fr) minmax(140px,1fr)}
+
+.embedded .play-controls.has-special{grid-template-columns:minmax(0,2fr) minmax(120px,1fr) minmax(120px,1fr)}
+.embedded .play-controls.has-special .duck-button{min-width:120px}
+.embedded .play-controls .special-button{min-width:120px;min-height:48px;border-radius:18px;border:2px solid #F0A020;background:#FFF4D6;color:#7A4A00;font-size:21px;font-weight:700;white-space:nowrap;padding:8px 4px}
+.embedded .play-controls .special-button[data-state=active]{background:#F0A020;color:white;opacity:1}
+.embedded .play-controls .special-button[data-state=cooldown]{background:#EEEEEE;border-color:#CCCCCC;color:#999999;opacity:1}
+.special-button[hidden]{display:none!important}
+
+@media(max-width:1100px),(pointer:coarse) and (max-width:1400px){.embedded .play-controls .special-button{font-size:20px}}
+
+.embedded .play-controls{grid-template-columns:minmax(120px,1fr) minmax(120px,1fr) minmax(0,2fr)}
+.embedded .play-controls .duck-button{min-width:120px}
+.embedded .play-controls .special-button[data-state=none]{background:#EEEEEE;border-color:#CCCCCC;color:#888888}
+.embedded .play-controls .special-button[data-state=auto]{background:#FFFBEF;border-color:#F5D58A;color:#9A6A10}

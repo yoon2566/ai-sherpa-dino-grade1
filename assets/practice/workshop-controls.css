@@ -1,0 +1,12 @@
+.slider-choice{display:flex;flex-direction:column;gap:22px;background:#f2faf0;border:2px solid var(--line);border-radius:22px;padding:24px 18px;margin-top:24px}
+.slider-choice label{font-size:20px;font-weight:800}.slider-choice output{text-align:center;font-size:48px;font-weight:900;color:var(--green-dark)}
+.slider-choice input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--green);cursor:pointer;touch-action:pan-y}
+.speed-choice output{font-size:clamp(24px,2.7vw,36px);line-height:1.4}.speed-number{text-align:center;font-size:16px;color:var(--muted);margin-top:-16px}
+.speed-ends{display:flex;justify-content:space-between;align-items:center;gap:6px;color:var(--muted);font-size:14px;font-weight:700}.speed-ends span:nth-child(2){color:var(--green-dark)}
+.range-ends{color:var(--muted);text-align:center;word-spacing:30px;font-size:16px}.finish-button{width:100%;margin-top:22px}
+.custom-message textarea{display:block;width:100%;resize:vertical;min-height:150px;border:2px solid #bcd8ee;border-radius:16px;padding:16px;font:inherit;font-size:18px;line-height:1.6;color:var(--navy);background:#fafdff}
+.custom-message textarea:focus{outline:3px solid #95cce9;outline-offset:2px}.custom-message .example{background:#fff8df;border-radius:14px;padding:14px;color:var(--navy)}
+.custom-message .voice-help{font-size:14px;margin:12px 0}.custom-message button[aria-pressed=true]{background:#fff0ed;border-color:#e68977}
+.game-share-dialog{width:min(520px,calc(100vw - 24px));max-height:90dvh;overflow:auto;border:0;border-radius:25px;padding:28px;background:#fff;color:var(--navy);box-shadow:0 15px 60px #17385640;font:inherit}.game-share-dialog::backdrop{background:#17385688}.game-share-dialog h2{font-size:27px}.game-share-dialog p{font-size:16px}.game-share-dialog label{display:flex;flex-direction:column;gap:10px;font-size:19px;font-weight:800}.game-share-dialog input{width:100%;padding:15px;border:2px solid var(--line);border-radius:14px;font:inherit;font-size:20px;color:var(--navy)}.share-board-link{display:inline-flex;align-items:center;justify-content:center;border-radius:16px;padding:12px 18px;text-decoration:none;font-weight:800;min-height:48px}.completion-actions{display:flex;flex-direction:column;gap:12px}.game-share-dialog :focus-visible{outline:3px solid #2779c4;outline-offset:3px}
+
+.game-share-dialog [hidden]{display:none!important}

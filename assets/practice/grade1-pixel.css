@@ -1,0 +1,59 @@
+.grade1-pixel-editor {
+  box-sizing: border-box;
+  width: min(510px, calc(100% - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  padding: clamp(12px, 2vw, 22px);
+  border: 2px solid #c9e1f0;
+  border-radius: 20px;
+  color: #142e4c;
+  background: #fff;
+  font: inherit;
+}
+.grade1-pixel-editor::backdrop { background: #17314a99; }
+.grade1-pixel-editor h2 { margin: 0; font-size: clamp(21px, 3vw, 28px); }
+.grade1-pixel-editor p { margin: 4px 0 12px; }
+.pixel-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(96px, 126px); gap: 14px; }
+.grade1-pixel-editor canvas {
+  display: block;
+  width: 100%;
+  max-width: min(320px, 56dvh);
+  aspect-ratio: 1;
+  align-self: center;
+  justify-self: center;
+  touch-action: none;
+  cursor: crosshair;
+  outline: 1px solid #91aabd;
+}
+.grade1-pixel-editor canvas:focus-visible { outline: 3px solid #246db3; }
+.pixel-tools { display: flex; flex-direction: column; gap: 5px; }
+.pixel-palette { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.grade1-pixel-editor button {
+  min-height: 35px;
+  height: auto;
+  padding: 5px 8px;
+  border: 1px solid #b5ccde;
+  border-radius: 8px;
+  background: #fff;
+  color: #142e4c;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.grade1-pixel-editor .pixel-palette button { min-height: 30px; padding: 0; }
+.grade1-pixel-editor button[aria-pressed="true"] { outline: 3px solid #135e9a; outline-offset: -3px; box-shadow: inset 0 0 0 5px #fff; }
+.grade1-pixel-editor button:disabled { opacity: .5; cursor: default; }
+.grade1-pixel-editor .pixel-message { color: #9e352a; }
+.grade1-pixel-editor .pixel-message:empty { display: none; }
+.pixel-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.grade1-pixel-editor .pixel-apply { background: #09863f; color: white; padding-inline: 16px; font-weight: 700; }
+@media(pointer:coarse){
+  .grade1-pixel-editor{width:min(590px,calc(100% - 16px))}
+  .pixel-workspace{grid-template-columns:minmax(0,1fr) 152px;gap:12px}
+  .grade1-pixel-editor button,.grade1-pixel-editor .pixel-palette button{min-width:44px;min-height:44px}
+  .pixel-actions{flex-wrap:wrap;padding-top:8px}
+}
+@media (max-width: 450px) {
+  .pixel-workspace { grid-template-columns: minmax(0, 1fr) 90px; gap: 8px; }
+  .grade1-pixel-editor button { font-size: 14px; min-height: 32px; }
+}
