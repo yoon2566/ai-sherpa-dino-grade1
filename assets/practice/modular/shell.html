@@ -1,0 +1,26 @@
+<!doctype html>
+<!--
+2026-10-30 · New implementation calibrated to the numeric mechanics of
+wayou/t-rex-runner 5455bfa408ec6b707c7300ff194b7390733a766d (Chromium-derived).
+Reference: runner-reference.json. Gameplay constants and collision coordinates
+were measured from that source. No upstream JS functions, graphics, audio,
+sprite sheets, logos, or UI lettering are included. Character artwork uses a
+newly created local atlas when available, with the earlier procedural artwork
+as a loading/error fallback. 60 Hz simulation; responsive world width, height 150.
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; media-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>질주</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fafaf7}body{display:grid;place-items:center}canvas{display:block;width:600px;height:150px;image-rendering:pixelated;touch-action:none;outline:none}.sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="game" width="600" height="150" tabindex="0" role="img" aria-label="질주 게임. 스페이스바 또는 위쪽 키로 점프, 아래쪽 키로 숙이기. 클릭하거나 터치하면 시작합니다."></canvas>
+<span id="status" class="sr" role="status" aria-live="polite">시작 전</span>
+<!-- SHERPA_GAME_BUNDLE -->
+</body>
+</html>

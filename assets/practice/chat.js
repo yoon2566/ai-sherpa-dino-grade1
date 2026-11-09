@@ -3,6 +3,7 @@ let classroomPracticeHidden=false;
 window.addEventListener('message',event=>{if(event.source!==parent||event.origin!==location.origin||event.data?.channel!=='grade1-classroom')return;const hidden=event.data.active!==true;if(hidden===classroomPracticeHidden)return;classroomPracticeHidden=hidden;if(hidden){if(speech)speech.abort();$('game').srcdoc='';}else if(html){$('game').srcdoc=previewDocument(html);}});
 const $=id=>document.getElementById(id);
 let lesson,html='',step=0,working=false,speech=null;
+let modularProject=null,modularUnsupported=false,initialGameHtml='';
 const speedChoices=[[0.5,'더더 느려요'],[0.7,'더 느려요'],[0.9,'느려요'],[1,'보통이에요'],[1.5,'빨라요'],[2,'더 빨라요'],[2.5,'더더 빨라요']];
 const options=[[['🤖','로봇'],['🤡','광대'],['🦓','얼룩말'],['🐱','고양이'],['🐰','토끼'],['🐸','개구리'],['🦊','여우'],['🐼','판다'],['👽','외계인']],[['🌳','숲속'],['🪐','우주'],['🏖️','바닷가'],['🏔️','눈 덮인 산'],['🌆','도시'],['🏜️','사막'],['🌈','무지개 나라'],['🏰','성'],['🌋','화산']],[['🪨','바위'],['📦','상자'],['🌵','선인장'],['🍄','버섯'],['🪵','통나무'],['🎃','호박'],['🧊','얼음'],['⚽','축구공'],['🚧','공사 표지판']],[],[],[],[],[]];
 const titles=['누구로 바꿔볼까?','어디에서 달려볼까?','무엇을 뛰어넘을까?','얼마나 빠르게 달릴까?','목숨을 몇 개로 할까?','어떤 선물을 모을까?','어떤 능력을 써볼까?','어떤 소리로 뛸까?'];
@@ -14,7 +15,7 @@ function bottom(){const c=$('conversation');c.scrollTop=c.scrollHeight}
 function say(title,text){const a=node('article');if(title)a.append(node('h2',title));if(text)a.append(node('p',text));$('conversation').append(a);bottom();return a}
 function reveal(a){requestAnimationFrame(()=>$('conversation').scrollTo({top:a.offsetTop-$('conversation').offsetTop,behavior:'smooth'}))}
 function previewDocument(value){return parent!==window ? value.replace(/<\/head\s*>/i, '<style>#grade1-duck,#grade1-special,#grade1-current-ability{display:none!important}</style></head>') : value;}
-function preview(value){window.resetSpecialControl?.();html=value;if(!classroomPracticeHidden)$('game').srcdoc=previewDocument(value);$('status').textContent='미리보기'}
+function preview(value){const projectState=window.SherpaProject.inspectHtml(value);modularProject=projectState.kind==='modular'?projectState.project:null;modularUnsupported=projectState.kind==='unsupported';window.resetSpecialControl?.();html=value;if(!classroomPracticeHidden)$('game').srcdoc=previewDocument(value);$('status').textContent='미리보기'}
 function choice(icon,label,fn){const b=btn('',fn),s=node('span',icon,'choice-icon');s.setAttribute('aria-hidden','true');b.append(s,node('span',label,'choice-label'));b.title=label;b.setAttribute('aria-label',label);b.setAttribute('aria-pressed','false');return b}
 function next(previousCharacterActions = null){
  window.saveClassroomPractice(html,step,false);
@@ -47,12 +48,15 @@ function prompt(label){
  const request=preset||[`주인공을 ${label} 모습으로 새로 그려 줘.`,`배경을 ${label} 풍경으로 바꿔 줘.`,`장애물을 ${label} 모양으로 바꿔 줘.`][step];
  if(!request)throw Error('선택지를 다시 골라 주세요.');return finishPrompt(request+'\n'+(stage.activity?.rules||'')+'\n'+(stage.activity?.optionRules?.[label]||''));
 }
-async function generate(request,message,controls,onSuccess,abilityOverride){
+async function generate(request,message,controls,onSuccess,abilityOverride,projectChange){
  if(working)return;working=true;lock(controls);if(speech)speech.abort();$('conversation').append(node('div',message,'user'));
  const a=say('','코드 0줄 · AI 응답을 기다리고 있어요…'),p=a.querySelector('p'),controller=new AbortController();const timer=setTimeout(()=>controller.abort(new DOMException('생성 시간 초과','TimeoutError')),180000),cancel=btn('멈추기',()=>controller.abort());a.append(cancel);
  $('busy').hidden=false;$('busy').textContent=p.textContent;$('status').textContent='AI가 수정 중';$('jump').disabled=$('restart').disabled=true;bottom();
  try{
-  const result=await generateClassroomEdit({prompt:request,baseHtml:html,abilityOverride},controller.signal,(length,lines)=>{p.textContent=$('busy').textContent=lines?'코드 '+lines.toLocaleString('ko-KR')+'줄 · '+length.toLocaleString('ko-KR')+'자 작성 중…':'코드 0줄 · AI 응답을 기다리고 있어요…'});
+  requireEditableProject();
+  // Phase one deliberately keeps drawing slots unchanged, including free requests.
+  // Only the known local settings and pixel editor can change a modular project.
+  const result=modularProject?{html:window.SherpaProject.buildGameHtml(projectChange?projectChange(modularProject):modularProject)}:await generateClassroomEdit({prompt:request,baseHtml:html,abilityOverride},controller.signal,(length,lines)=>{p.textContent=$('busy').textContent=lines?'코드 '+lines.toLocaleString('ko-KR')+'줄 · '+length.toLocaleString('ko-KR')+'자 작성 중…':'코드 0줄 · AI 응답을 기다리고 있어요…'});
   savePracticePreview(result.html);p.textContent='바꿨어요! 미리보기에서 게임을 해봐요.';onSuccess(a);
  }catch(e){console.error('[공룡3 생성 실패]',e);p.className='error';p.textContent=controller.signal.aborted?(controller.signal.reason?.name==='TimeoutError'?'시간이 오래 걸려요. 다시 해봐요.':'멈췄어요. 다시 골라 주세요.'):e.code==='MISSING_COLLECTIBLES'?e.message:'잘 안 됐어요. 다시 해봐요.';lock(controls,false);$('status').textContent='이전 게임 유지';a.append(btn('입력으로 돌아가기',()=>reveal(controls)))}
  finally{clearTimeout(timer);cancel.remove();working=false;$('busy').hidden=true;$('jump').disabled=$('restart').disabled=false;bottom()}
@@ -64,7 +68,7 @@ function apply(icon,label,controls,redraw=false){
  generate(request,`${icon} ${label}${redraw?', 다시 만들어 주세요!':'! 이걸로 해볼래요.'}`,controls,a=>{
   if(step===0){appendCharacterResultActions(a,actions=>{lock(actions);apply(icon,label,controls,true)});return}
   const actions=node('div',null,'actions');actions.append(btn('다시 그리기',()=>{if(working)return;lock(actions);apply(icon,label,controls,true)}),btn(step===7?'내 생각 더하기 →':'다음 단계 →',()=>{if(working)return;lock(actions);step++;next()},'primary'));a.append(actions);
- });
+ },undefined,project=>window.SherpaProject.withConfig(project,step===3?{speedMultiplier:Number(label.replace('배',''))}:step===4?{initialLives:Number(label.replace('개',''))}:step===5?{itemsEnabled:true,itemName:label}:step===7?{soundPreset:label}:{}));
 }
 function complete(){if(working)return;window.saveClassroomPractice(html,step,true);$('progress').textContent='완성';const a=say('나만의 게임 완성! 🎉','게시판에 저장해서 친구들과 함께 해봐요.');const actions=node('div',null,'completion-actions');const board=node('a','친구들 게임 보기 ↗','share-board-link');board.href=classroomBoardUrl('/board');board.target='_blank';board.rel='noopener';actions.append(...window.createGameShareButtons(()=>html),btn('더 바꾸고 싶어요',()=>{lock(a);customPicker()}),board);a.append(actions);reveal(a)}
 function customPicker(){
@@ -99,7 +103,11 @@ $('jump').onclick=()=>{$('game').contentWindow.postMessage({channel:'lounge-dino
 $('download').onclick=()=>{if(!html)return;let owner=document;try{if(parent!==window&&parent.location.origin===location.origin)owner=parent.document}catch{}const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),a=owner.createElement('a');a.href=url;a.download='나의_공룡게임.html';a.hidden=true;owner.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 (async()=>{try{
  const response=await fetch('lesson-data.json');if(!response.ok)throw Error('수업 자료 로딩 실패');lesson=await response.json();for(const i of [5,6,7])options[i]=lesson.stages[i].questions[0].issues.map(o=>[o.icon,o.label]);
- const resumed=window.restoreClassroomPractice();if(resumed){step=resumed.step;preview(resumed.html);if(resumed.complete){complete();return}}else preview(lesson.game);if(new URLSearchParams(location.search).get('course')==='1'){next();return}
+ const resumed=window.restoreClassroomPractice();
+ const resumedKind=resumed?window.SherpaProject.inspectHtml(resumed.html).kind:null;
+ initialGameHtml=lesson.game;
+ if(!resumed||resumedKind==='modular'){await window.SherpaProject.init();initialGameHtml=window.SherpaProject.buildGameHtml(window.SherpaProject.createProject())}
+ if(resumed){step=resumed.step;preview(resumed.html);if(resumed.complete){complete();return}}else preview(initialGameHtml);if(new URLSearchParams(location.search).get('course')==='1'){next();return}
  const a=say('우리 함께 게임을 만들어요!','먼저 미리보기에서 공룡게임을 해봐요. 준비되면 아래 버튼을 눌러요.');a.append(btn('주인공 바꾸러 가기 →',()=>{lock(a);next()},'primary'));
 }catch{say('수업을 불러오지 못했어요','로컬 서버를 확인하고 새로고침해 주세요.')}})();
 
@@ -115,7 +123,7 @@ function appendCharacterChoices(grid, previousActions) {
       reveal(previousActions.parentElement);
       previousActions.querySelector('button').focus({preventScroll: true});
     }));
-  } else if (html !== lesson.game) {
+  } else if (html !== initialGameHtml) {
     // A restored first step may already contain a successfully changed hero.
     grid.append(choice('✓', '지금 캐릭터로 다음 단계', () => {
       if (working) return;
@@ -149,11 +157,12 @@ function appendCharacterResultActions(article, redraw) {
 
 function openCharacterEditor(controls) {
   if (working || step !== 0) return;
+  try { requireEditableProject(); } catch (error) { reveal(say('', error.message)); return; }
   const editor = window.grade1Pixel;
   editor.open({
-    initial: editor.read(html),
+    initial: modularProject ? modularProject.assets.pixel : editor.read(html),
     onApply(sprite) {
-      const changedGame = sprite ? editor.apply(html, sprite) : lesson.game;
+      const changedGame = modularProject ? window.SherpaProject.buildGameHtml(window.SherpaProject.withPixel(modularProject,sprite)) : sprite ? editor.apply(html, sprite) : lesson.game;
       if (!window.saveClassroomPractice(changedGame, 0, false)) {
         throw Error('그림을 저장하지 못했어요. 브라우저의 저장 공간을 확인해 주세요.');
       }
@@ -168,6 +177,10 @@ function openCharacterEditor(controls) {
 }
 
 // These functions are included in the classroom practice script by build.cjs.
+function requireEditableProject() {
+  if (modularUnsupported) throw Error('이 버전의 게임은 지금 바꿀 수 없어요. 저장한 게임은 그대로 할 수 있어요.');
+}
+
 function savePracticePreview(game) {
   if (!window.saveClassroomPractice(game, step, false)) {
     throw Error('게임을 저장하지 못했어요. 브라우저의 저장 공간을 확인한 뒤 다시 시도해 주세요.');
@@ -252,8 +265,10 @@ function selectClassroomAbility(label, controls) {
   const selected = controls.querySelector('button[aria-pressed="true"]');
   let game;
   try {
-    game = window.Grade1Abilities.apply(html, label);
+    requireEditableProject();
+    game = modularProject ? window.SherpaProject.buildGameHtml(window.SherpaProject.withConfig(modularProject,{abilityId:window.SherpaProject.abilityIds[label]})) : window.Grade1Abilities.apply(html, label);
   } catch (error) {
+    if (modularProject || modularUnsupported) { reveal(say('능력을 적용하지 못했어요.', error.message)); return; }
     if (error.code === 'MISSING_COLLECTIBLES') {
       const result = say('', error.message);
       lock(controls, false); reveal(result);
