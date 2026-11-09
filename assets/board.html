@@ -19,7 +19,19 @@
 .board-heading-row .survey-link:hover{background:#007d38;color:#fff;filter:brightness(.9)}
 .board-heading-row .survey-link:focus-visible{outline:3px solid var(--ink);outline-offset:4px}
 @media(max-width:600px){.board-heading-row{gap:16px}.board-heading-row h1{flex-basis:100%}.board-heading-row .survey-link{font-size:15px;padding:11px 16px}}
+.viewer-download-actions{display:flex;gap:12px;align-items:stretch;flex:none;max-width:100%}
+#expand-game{background:#fff;border:2px solid #d8ebfc;color:#102c53;border-radius:16px;white-space:nowrap}
+.viewer-download-actions>*{min-height:46px;white-space:nowrap}
+#viewer-game{flex:1 1 auto;min-height:180px;height:min(66dvh,680px)}
+#viewer-game #play{height:100%;min-height:0}
+.viewer-head,.viewer-foot{flex:none}
+#viewer-game.expanded-game{position:fixed;inset:0;width:100%;height:100dvh;z-index:100;background:#fff;display:flex;flex-direction:column;padding:12px;gap:10px}
+#viewer-game.expanded-game #collapse-game{display:flex!important;align-self:flex-end;flex:none;min-width:46px;min-height:46px}
+#viewer-game.expanded-game #play{flex:1;height:auto;min-height:0}
+.viewer:has(.expanded-game){overflow:visible}
+@media(max-width:600px){.viewer-download-actions{flex-wrap:wrap}.viewer-download-actions>*{flex:1 0 auto}}
 </style>
+<script src="/game-expand.js" defer></script>
 <script src="/board.js" defer></script>
 <link rel="stylesheet" href="/board-theme.css"></head>
 <body>
@@ -35,7 +47,7 @@
 <nav class="pagination" aria-label="작품 목록 페이지"><button id="previous" type="button" disabled>← 이전</button><span id="page">1 페이지</span><button id="next" type="button" disabled>다음 →</button></nav>
 <footer>수업 화면에서 게시판에 저장하면 이곳에 작품이 올라와요. 게시한 뒤에는 수정 내용을 업데이트할 수 있어요.</footer>
 </main>
-<dialog id="viewer" class="viewer" aria-labelledby="work-title"><div class="viewer-head"><div><h2 id="work-title">공유한 게임</h2><div id="work-by" class="viewer-by"></div></div><div class="viewer-actions"><div id="viewer-heart"></div><button id="close" type="button" aria-label="게임 닫기">닫기 ×</button></div></div><p id="viewer-heart-feedback" class="heart-feedback" role="status" aria-live="polite"></p><div id="play" class="viewer-content"></div><div class="viewer-foot"><p id="play-hint">게임 화면을 클릭한 뒤 조작해 보세요.</p><a id="download" class="button" hidden>HTML 다운로드 ↓</a></div></dialog>
+<dialog id="viewer" class="viewer" aria-labelledby="work-title"><div class="viewer-head"><div><h2 id="work-title">공유한 게임</h2><div id="work-by" class="viewer-by"></div></div><div class="viewer-actions"><div id="viewer-heart"></div><button id="close" type="button" aria-label="게임 닫기">닫기 ×</button></div></div><p id="viewer-heart-feedback" class="heart-feedback" role="status" aria-live="polite"></p><div id="viewer-game"><button id="collapse-game" type="button" aria-label="크게 보기 닫기" hidden>✕</button><div id="play" class="viewer-content"></div></div><div class="viewer-foot"><p id="play-hint">게임 화면을 클릭한 뒤 조작해 보세요.</p><div class="viewer-download-actions"><button id="expand-game" type="button" aria-controls="viewer-game" hidden>⛶ 크게 보기</button><a id="download" class="button" hidden>HTML 다운로드 ↓</a></div></div></dialog>
 <dialog id="manage-dialog" class="manage-dialog" aria-labelledby="manage-heading"><form id="manage-form"><h2 id="manage-heading">작품 제목 수정</h2><p id="manage-description"></p><label id="manage-title-label">작품 제목<input id="manage-title" type="text" maxlength="80" required autocomplete="off"></label><label id="manage-author-label">작성자 이름<input id="manage-author" maxlength="40" required autocomplete="off"></label><p id="manage-error" role="status" aria-live="polite"></p><div class="manage-dialog-actions"><button id="manage-cancel" type="button">취소</button><button id="manage-submit" type="submit">제목 저장</button></div></form></dialog>
 <script>if(new URLSearchParams(location.search).get('embedded')==='lesson'){document.body.classList.add('embedded-lesson');document.getElementById('back-to-lesson').hidden=true;}</script></body>
 </html>
