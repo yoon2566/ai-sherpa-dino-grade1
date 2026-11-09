@@ -8,7 +8,7 @@ const picture=(indices,palette=['#F28C28'])=>{const flat=Array(256).fill('.');fo
 const solid=picture(Array.from({length:256},(_,i)=>i)),blank='.'.repeat(16);
 const box=(w,h,x=0,y=0)=>Array.from({length:w*h},(_,i)=>(y+Math.floor(i/w))*16+x+i%w);
 check('solid canonicalises colour without mutating source',()=>{const before=JSON.stringify(solid),r=api.validatePixel('hero',solid);assert(r.ok);assert.equal(r.pixel.palette[0],'#f28c28');assert.equal(r.painted,256);assert.equal(JSON.stringify(solid),before);});
-for(const slot of ['hero','obstacle','item'])check(slot+' 38 rejects and 39 accepts',()=>{assert(!api.validatePixel(slot,picture(Array.from({length:38},(_,i)=>i))).ok);assert(api.validatePixel(slot,picture(Array.from({length:39},(_,i)=>i))).ok);});
+for(const slot of ['hero','obstacle'])check(slot+' 38 rejects and 39 accepts',()=>{assert(!api.validatePixel(slot,picture(Array.from({length:38},(_,i)=>i))).ok);assert(api.validatePixel(slot,picture(Array.from({length:39},(_,i)=>i))).ok);});
 for(const slot of ['hero','obstacle'])check(slot+' pads above',()=>{const r=api.validatePixel(slot,{palette:solid.palette,pixels:Array(3).fill('0'.repeat(16))});assert(r.ok);assert.equal(r.pixel.pixels[12],blank);assert.equal(r.pixel.pixels[15],'0'.repeat(16));});
 check('item pads both sides, odd remainder below',()=>{const r=api.validatePixel('item',{palette:solid.palette,pixels:Array(3).fill('0'.repeat(16))});assert(r.ok);assert.equal(r.pixel.pixels[5],blank);assert.equal(r.pixel.pixels[6],'0'.repeat(16));assert.equal(r.pixel.pixels[8],'0'.repeat(16));assert.equal(r.pixel.pixels[9],blank);});
 check('excess blank edge rows removed before painted rows',()=>{const r=api.validatePixel('hero',{palette:solid.palette,pixels:[blank,...solid.pixels,blank]});assert.equal(r.painted,256);});
@@ -62,7 +62,7 @@ for (const slot of ['item','obstacle']) {
   assert(logs.slice(start).some(l=>l[1].removedSmallCells===6&&l[1].enlargement.scale===2));
  });
  check(slot+' keeps largest tiny group and removes diagonal-only neighbour',()=>{
-  const r=api.validatePixel(slot,picture([0,1,2,19]));assert.equal(r.painted,27);assert(!r.ok);
+  const r=api.validatePixel(slot,picture([0,1,2,19]));assert.equal(r.painted,27);assert.equal(r.ok,slot==='item');
  });
  check(slot+' retains first largest when tiny groups tie',()=>{
   const r=api.validatePixel(slot,picture([0,255]));assert.equal(r.painted,9);assert(!r.ok);
@@ -71,4 +71,5 @@ for (const slot of ['item','obstacle']) {
   const r=api.validatePixel(slot,picture([...box(6,6),...box(4,4,12,12)]));assert.equal(r.painted,52);assert(r.ok);
  });
 }
+check('item 19 rejects and 20 accepts after repairs',()=>{for(const n of [19,20]){const r=api.validatePixel('item',picture(Array.from({length:n},(_,i)=>i)));assert.equal(r.painted,n);assert.equal(r.ok,n===20);}});
 const out=process.env.MODULAR_CAPTURE_DIR||path.resolve(__dirname,'../../../85_공룡3_모듈화/보정캡처');fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'pixel-contract.json'),JSON.stringify({ok:true,count:checks.length,checks},null,2));console.log('PASS modular pixel contracts: '+checks.length+' checks');

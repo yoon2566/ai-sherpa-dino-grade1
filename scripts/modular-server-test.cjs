@@ -58,6 +58,9 @@ async function check(name, work) {await work(); results.push({name,ok:true}); co
       const schema=p.response_format.json_schema.schema;assert.equal(schema.additionalProperties,false);assert.deepEqual(schema.required,['palette','pixels']);
       assert.equal(schema.properties.pixels.items.pattern,'^[.0-7]{16}$');assert.equal(schema.properties.palette.items.pattern,'^#[0-9a-f]{6}$');
       assert.equal(schema.properties.pixels.maxItems,undefined);assert.equal(schema.properties.pixels.minItems,1);
+      assert.match(p.messages[0].content,/item\(선물\)은 적어도 20칸/);assert.match(p.messages[0].content,/hero\(캐릭터\)·obstacle\(장애물\)은 적어도 39칸/);
+      const retry=await run({mode:'pixel',slot,request:'다시 그려 줘.',retry:true});
+      assert(JSON.parse(retry.upstream.body.messages[1].content).retryInstruction.includes((slot==='item'?20:39)+'칸 이상'));
       assert.equal(data.slot,slot); assert.equal(Object.hasOwn(data,'current'),false); assert.equal(data.contract,undefined);
       assert.match(p.messages[0].content,/오른쪽을 보고 달리는 옆모습/); assert.match(p.messages[0].content,/상하좌우로 연결/); assert.match(p.messages[0].content,/아래쪽 마지막 줄까지/);
       assert.equal(r.rateCalls,1); assert.equal(r.fetchCalls,1);

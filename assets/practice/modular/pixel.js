@@ -156,7 +156,7 @@
     try {
       if (!['hero', 'obstacle', 'item'].includes(slot)) fail();
       const pixel = repair(slot, value), stats = measure(pixel);
-      if (stats.painted < Math.ceil(256 * .15)) return {ok: false, pixel, error: '그림을 더 크게 채워 주세요.', ...stats};
+      if (stats.painted < (slot === 'item' ? 20 : 39)) return {ok: false, pixel, error: '그림을 더 크게 채워 주세요.', ...stats};
       return {ok: true, pixel, ...stats};
     } catch { return {ok: false, error: '그림은 16줄, 한 줄 16칸과 최대 8색으로 보내 주세요.'}; }
   }
