@@ -18,16 +18,18 @@
 
   function createProject() {
     return {
-      formatVersion: 2, engineVersion: ENGINE_VERSION,
+      formatVersion: 2, engineVersion: ENGINE_VERSION, authoringVersion: 3,
       config: {speedMultiplier: 1, initialLives: 1, itemsEnabled: false, itemName: '별', abilityId: '', soundPreset: 'default', muted: false},
       slots: {hero: {mode: 'default'}, background: {mode: 'default'}, obstacle: {mode: 'default', style: {sizeScale: 1, shape: 'rect'}}, item: {mode: 'default'}},
-      assets: {pixel: null}
+      assets: {pixel: null, obstacle: null, item: null}
     };
   }
 
   function normalizeProject(value) {
     if (!isObject(value) || value.formatVersion !== 2 || value.engineVersion !== ENGINE_VERSION) invalid();
     const result = createProject(), config = value.config, slots = value.slots, assets = value.assets;
+    if (value.authoringVersion !== undefined && ![2, 3].includes(value.authoringVersion)) invalid();
+    result.authoringVersion = value.authoringVersion ?? 2;
     if (!isObject(config) || !isObject(slots) || !isObject(assets)) invalid();
     if (!Number.isFinite(config.speedMultiplier) || config.speedMultiplier < 0.5 || config.speedMultiplier > 2.5) invalid();
     if (!Number.isInteger(config.initialLives) || config.initialLives < 1 || config.initialLives > 9) invalid();
@@ -37,7 +39,7 @@
     for (const key of Object.keys(result.config)) result.config[key] = config[key];
     for (const name of ['hero', 'background', 'obstacle', 'item']) {
       const slot = slots[name];
-      if (!isObject(slot) || !(['default', 'code', ...(name === 'hero' ? ['pixel'] : [])].includes(slot.mode))) invalid();
+      if (!isObject(slot) || !(['default', 'code', ...(name !== 'background' ? ['pixel'] : [])].includes(slot.mode))) invalid();
       if (slot.mode === 'code') {
         if (!global.SherpaSlotSafety?.validateStatic(name, slot.code).ok) invalid();
         result.slots[name].code = slot.code;
@@ -47,9 +49,19 @@
     const style = slots.obstacle.style;
     if (!isObject(style) || !Number.isFinite(style.sizeScale) || style.sizeScale < 0.7 || style.sizeScale > 1.3 || !['rect', 'round'].includes(style.shape)) invalid();
     result.slots.obstacle.style = {sizeScale: style.sizeScale, shape: style.shape};
-    if (assets.pixel !== null && !validPixels(assets.pixel)) invalid();
-    if (slots.hero.mode === 'pixel' && !validPixels(assets.pixel)) invalid();
-    result.assets.pixel = assets.pixel;
+    for (const name of ['hero', 'obstacle', 'item']) {
+      const key = name === 'hero' ? 'pixel' : name, data = assets[key] ?? null;
+      if (data === null) {
+        if (slots[name].mode === 'pixel') invalid();
+        result.assets[key] = null;
+      } else if (name === 'hero' && typeof data === 'string') {
+        if (!validPixels(data)) invalid();
+        result.assets[key] = data;
+      } else {
+        if (!global.SherpaPixel) invalid();
+        result.assets[key] = global.SherpaPixel.normalize(data);
+      }
+    }
     return result;
   }
 
@@ -103,11 +115,20 @@
     return normalizeProject(next);
   }
 
-  function withPixel(project, pixels) {
-    if (pixels !== null && !validPixels(pixels)) invalid();
+  function withPixel(project, name, artwork) {
     const next = copy(project);
-    next.slots.hero = {mode: pixels ? 'pixel' : 'default'};
-    next.assets.pixel = pixels;
+    // Preserve the original direct-drawing API for old and phase-2 works.
+    if (arguments.length === 2) {
+      if (name !== null && !validPixels(name)) invalid();
+      next.slots.hero = {mode: name ? 'pixel' : 'default'};
+      next.assets.pixel = name;
+      return normalizeProject(next);
+    }
+    if (!['hero', 'obstacle', 'item'].includes(name)) invalid();
+    const data = artwork === null ? null : global.SherpaPixel.normalize(artwork);
+    next.slots[name] = {mode: data ? 'pixel' : 'default'};
+    if (name === 'obstacle') next.slots.obstacle.style = copy(project.slots.obstacle.style);
+    next.assets[name === 'hero' ? 'pixel' : name] = data;
     return normalizeProject(next);
   }
 

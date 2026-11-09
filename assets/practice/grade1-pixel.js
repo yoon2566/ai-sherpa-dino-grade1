@@ -105,9 +105,36 @@
     return output;
   }
 
-  function open({initial, onApply}) {
+  function open({initial, draft, slot = 'hero', onApply, onRetry, onCancel}) {
     if (document.querySelector('.grade1-pixel-editor')) return;
-    const pixels = (valid(initial) ? initial : empty).split('');
+    const ai = draft !== undefined;
+    const indices = '0123456789abc';
+    const aiIndices = '0123456789ab';
+    const colors = palette.map(entry => entry.slice());
+    let seed = valid(initial) ? initial : empty;
+    if (ai) {
+      if (!['hero', 'obstacle', 'item'].includes(slot) || !draft || !Array.isArray(draft.palette)
+          || draft.palette.length < 1 || draft.palette.length > 12
+          || draft.palette.some(value => typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value))
+          || !Array.isArray(draft.pixels) || draft.pixels.length !== size
+          || draft.pixels.some(row => typeof row !== 'string' || row.length !== size
+            || Array.from(row).some(pixel => pixel !== '.' && (aiIndices.indexOf(pixel) < 0 || aiIndices.indexOf(pixel) >= draft.palette.length)))) {
+        throw Error('잘 안 됐어요. 다시 해봐요.');
+      }
+      colors.splice(1, colors.length - 1, ...draft.palette.map((value, index) => ['AI 색 ' + (index + 1), value.toLowerCase()]));
+      for (const entry of palette.slice(1)) {
+        if (colors.length === 13) break;
+        if (!colors.some(color => color[1] === entry[1])) colors.push(entry.slice());
+      }
+      seed = draft.pixels.join('').split('').map(pixel => pixel === '.' ? '0' : indices[aiIndices.indexOf(pixel) + 1]).join('');
+    }
+    const pixels = seed.split('');
+    const hasPaint = () => pixels.some(pixel => pixel !== '0');
+    const artwork = () => ({
+      palette: colors.slice(1).map(entry => entry[1]),
+      pixels: Array.from({length: size}, (_, y) => pixels.slice(y * size, (y + 1) * size)
+        .map(pixel => pixel === '0' ? '.' : aiIndices[indices.indexOf(pixel) - 1]).join(''))
+    });
     const dialog = document.createElement('dialog');
     dialog.className = 'grade1-pixel-editor';
     dialog.setAttribute('aria-labelledby', 'grade1-pixel-heading');
@@ -122,14 +149,25 @@
       + '<button type="button" class="pixel-cancel">취소</button>'
       + '<button type="button" class="pixel-apply">이 캐릭터로 달리기</button></div>';
     const find = selector => dialog.querySelector(selector);
+    if (ai) {
+      find('h2').textContent = {hero:'AI가 그린 밑그림이에요', obstacle:'AI가 그린 장애물이에요', item:'AI가 그린 선물이에요'}[slot];
+      find('p').textContent = '마음에 안 드는 칸을 고쳐 봐요. 다 되면 아래 버튼을 눌러요.';
+      find('.pixel-cancel').textContent = '다시 그려줘';
+      find('.pixel-apply').textContent = {hero:'이 캐릭터로 달리기 ✓', obstacle:'이 장애물로 정하기 ✓', item:'이 선물로 정하기 ✓'}[slot];
+      const close = document.createElement('button');
+      close.type = 'button'; close.className = 'pixel-close'; close.textContent = '✕';
+      close.setAttribute('aria-label', '닫기'); close.style.float = 'right';
+      close.onclick = () => { if (!applying) dialog.close(); };
+      dialog.prepend(close);
+    }
     const canvas = find('canvas'), ctx = canvas.getContext('2d');
     const applyButton = find('.pixel-apply'), undoButton = find('.pixel-undo');
-    let color = 1, cursor = 0, stroke = null, keyboardCursor = false;
+    let color = 1, cursor = 0, stroke = null, keyboardCursor = false, applying = false, outcome = 'cancel';
     const history = [], swatches = [];
     function refresh() {
       for (let i = 0; i < pixels.length; i++) {
         const x = i % size, y = Math.floor(i / size);
-        ctx.fillStyle = pixels[i] === '0' ? ((x + y) % 2 ? '#e5edf3' : '#fff') : palette[Number(pixels[i])][1];
+        ctx.fillStyle = pixels[i] === '0' ? ((x + y) % 2 ? '#e5edf3' : '#fff') : colors[indices.indexOf(pixels[i])][1];
         ctx.fillRect(x * 20, y * 20, 20, 20);
       }
       ctx.strokeStyle = '#9aaebd';
@@ -144,7 +182,7 @@
         ctx.lineWidth = 3; ctx.strokeStyle = '#1671cd';
         ctx.strokeRect(cursor % size * 20 + 2, Math.floor(cursor / size) * 20 + 2, 16, 16);
       }
-      find('.pixel-clear').disabled = !valid(pixels.join(''));
+      find('.pixel-clear').disabled = !hasPaint();
       undoButton.disabled = history.length === 0;
     }
     function remember(previous) {
@@ -156,7 +194,7 @@
       color = index;
       swatches.forEach((button, i) => button.setAttribute('aria-pressed', String(i === color)));
     }
-    palette.forEach(([name, value], index) => {
+    colors.forEach(([name, value], index) => {
       const button = index ? document.createElement('button') : find('.pixel-eraser');
       if (index) {
         button.type = 'button'; button.title = name; button.setAttribute('aria-label', name);
@@ -177,12 +215,12 @@
       for (let k = 0; k <= span; k++) {
         const x = Math.round(from.x + (to.x - from.x) * k / span);
         const y = Math.round(from.y + (to.y - from.y) * k / span);
-        pixels[y * size + x] = String(color);
+        pixels[y * size + x] = indices[color];
       }
       stroke.last = to; cursor = to.y * size + to.x; refresh();
     }
     canvas.onpointerdown = event => {
-      if (event.button !== 0 || stroke) return;
+      if (event.button !== 0 || stroke || applying) return;
       event.preventDefault(); keyboardCursor = false;
       canvas.setPointerCapture(event.pointerId);
       stroke = {id:event.pointerId, previous:pixels.join(''), last:null}; paintTo(point(event));
@@ -195,6 +233,7 @@
     }
     canvas.onpointerup = canvas.onpointercancel = canvas.onlostpointercapture = finishStroke;
     canvas.onkeydown = event => {
+      if (applying) return;
       const x = cursor % size, y = Math.floor(cursor / size);
       switch (event.key) {
         case 'ArrowLeft': cursor = y * size + Math.max(x - 1, 0); break;
@@ -202,7 +241,7 @@
         case 'ArrowUp': cursor = Math.max(0, y - 1) * size + x; break;
         case 'ArrowDown': cursor = Math.min(size - 1, y + 1) * size + x; break;
         case ' ': case 'Enter': {
-          const previous = pixels.join(''); pixels[cursor] = String(color); remember(previous); break;
+          const previous = pixels.join(''); pixels[cursor] = indices[color]; remember(previous); break;
         }
         default: return;
       }
@@ -210,19 +249,40 @@
     };
     undoButton.onclick = () => { const previous = history.pop(); if (previous) pixels.splice(0, pixels.length, ...previous); refresh(); };
     find('.pixel-clear').onclick = () => { const previous = pixels.join(''); pixels.fill('0'); remember(previous); refresh(); };
-    find('.pixel-cancel').onclick = () => dialog.close();
-    applyButton.onclick = () => {
+    find('.pixel-cancel').onclick = () => {
+      if (applying) return;
+      if (ai) { outcome = 'retry'; const value = artwork(); dialog.close(); onRetry?.(value); }
+      else dialog.close();
+    };
+    applyButton.onclick = async () => {
+      if (applying) return;
       const value = pixels.join('');
-      if (!valid(value)) {
-        try { onApply(null); find('.pixel-message').textContent = '그림이 비어서 기본 공룡으로 달려요'; }
+      if (!hasPaint()) {
+        if (ai) { find('.pixel-message').textContent = '잘 안 됐어요. 다시 해봐요.'; return; }
+        try { await onApply(null); find('.pixel-message').textContent = '그림이 비어서 기본 공룡으로 달려요'; }
         catch (error) { find('.pixel-message').textContent = error.message; }
         return;
       }
-      try { onApply(value); dialog.close(); }
+      applying = true;
+      dialog.querySelectorAll('button').forEach(button => { button.disabled = true; });
+      try { await onApply(ai ? artwork() : value); outcome = 'apply'; dialog.close(); }
       catch (error) { find('.pixel-message').textContent = error.message; }
+      finally {
+        applying = false;
+        dialog.querySelectorAll('button').forEach(button => { button.disabled = false; });
+        refresh();
+      }
     };
-    dialog.addEventListener('close', () => dialog.remove(), {once:true});
+    dialog.addEventListener('cancel', event => { if (applying) event.preventDefault(); });
+    // Native dialog backdrops retarget clicks to the dialog itself.
+    dialog.addEventListener('click', event => {
+      if (event.target !== dialog || applying) return;
+      const rect = dialog.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+    });
+    dialog.addEventListener('close', () => { dialog.remove(); if (outcome === 'cancel') onCancel?.(); }, {once:true});
     document.body.append(dialog); selectColor(1); refresh(); dialog.showModal();
+    return dialog;
   }
   window.grade1Pixel = {read, remove, apply, open};
 })();

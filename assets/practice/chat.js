@@ -50,17 +50,47 @@ function prompt(label){
 }
 async function generate(request,message,controls,onSuccess,abilityOverride,projectChange,slotIntent){
  if(working)return;working=true;lock(controls);if(speech)speech.abort();$('conversation').append(node('div',message,'user'));
- const a=say('','코드 0줄 · AI 응답을 기다리고 있어요…'),p=a.querySelector('p'),controller=new AbortController();const timer=setTimeout(()=>controller.abort(new DOMException('생성 시간 초과','TimeoutError')),180000),cancel=btn('멈추기',()=>controller.abort());a.append(cancel);
+ const a=say('','코드 0줄 · AI 응답을 기다리고 있어요…'),p=a.querySelector('p'),controller=new AbortController();let timer;const startTimer=()=>{clearTimeout(timer);timer=setTimeout(()=>controller.abort(new DOMException('생성 시간 초과','TimeoutError')),180000)},cancel=btn('멈추기',()=>controller.abort());startTimer();a.append(cancel);
  $('busy').hidden=false;$('busy').textContent=p.textContent;$('status').textContent='AI가 수정 중';$('jump').disabled=$('restart').disabled=true;bottom();
  try{
   requireEditableProject();
   const progress=(length,lines)=>{p.textContent=$('busy').textContent=lines?'코드 '+lines.toLocaleString('ko-KR')+'줄 · '+length.toLocaleString('ko-KR')+'자 작성 중…':'코드 0줄 · AI 응답을 기다리고 있어요…'};
-  const nextProject=modularProject?(slotIntent?await window.SherpaSlotAI.apply(modularProject,slotIntent,controller.signal,progress):projectChange?projectChange(modularProject):modularProject):null;
-  const result=nextProject?{html:window.SherpaProject.buildGameHtml(nextProject)}:await generateClassroomEdit({prompt:request,baseHtml:html,abilityOverride},controller.signal,progress);
+  let nextProject=modularProject,confirmed=false;
+  if(modularProject&&slotIntent&&modularProject.authoringVersion===3){
+   let proposal=await window.SherpaSlotAI.prepare(modularProject,slotIntent,controller.signal,progress);
+   while(proposal.draft){
+    clearTimeout(timer);cancel.hidden=true;$('busy').hidden=true;
+    const choice=await reviewPixelDraft(modularProject,proposal,controller.signal);
+    if(choice.action==='cancel'){lock(controls,false);$('status').textContent='이전 게임 유지';a.remove();return}
+    if(choice.action==='apply'){confirmed=true;break}
+    cancel.hidden=false;$('busy').hidden=false;startTimer();progress(0,0);
+    proposal=await window.SherpaSlotAI.redraw(modularProject,proposal,choice.pixel,controller.signal,progress);
+   }
+   nextProject=proposal.project;
+  }else if(modularProject){nextProject=slotIntent?await window.SherpaSlotAI.apply(modularProject,slotIntent,controller.signal,progress):projectChange?projectChange(modularProject):modularProject}
+  const result=confirmed?null:nextProject?{html:window.SherpaProject.buildGameHtml(nextProject)}:await generateClassroomEdit({prompt:request,baseHtml:html,abilityOverride},controller.signal,progress);
   if(controller.signal.aborted)throw controller.signal.reason;
-  savePracticePreview(result.html);p.textContent='바꿨어요! 미리보기에서 게임을 해봐요.';onSuccess(a);
+  if(!confirmed)savePracticePreview(result.html);p.textContent='바꿨어요! 미리보기에서 게임을 해봐요.';onSuccess(a);
  }catch(e){console.error('[공룡3 생성 실패]',e);p.className='error';p.textContent=controller.signal.aborted?(controller.signal.reason?.name==='TimeoutError'?'시간이 오래 걸려요. 다시 해봐요.':'멈췄어요. 다시 골라 주세요.'):['MISSING_COLLECTIBLES','UNSUPPORTED_CHANGE'].includes(e.code)?e.message:'잘 안 됐어요. 다시 해봐요.';lock(controls,false);$('status').textContent='이전 게임 유지';a.append(btn('입력으로 돌아가기',()=>reveal(controls)))}
  finally{clearTimeout(timer);cancel.remove();working=false;$('busy').hidden=true;$('jump').disabled=$('restart').disabled=false;bottom()}
+}
+function reviewPixelDraft(project,proposal,signal){
+ return new Promise((resolve,reject)=>{
+  if(signal.aborted){reject(signal.reason);return}
+  let dialog;
+  const finish=value=>{signal.removeEventListener('abort',abort);resolve(value)};
+  const abort=()=>{dialog?.close();signal.removeEventListener('abort',abort);reject(signal.reason)};
+  signal.addEventListener('abort',abort,{once:true});
+  dialog=window.grade1Pixel.open({draft:proposal.draft,slot:proposal.slot,
+   onApply(pixel){
+    if(signal.aborted)throw signal.reason;
+    let nextProject=window.SherpaProject.withPixel(project,proposal.slot,pixel);
+    if(proposal.slot==='item')nextProject=window.SherpaProject.withConfig(nextProject,{itemsEnabled:true,...(proposal.intent.itemName?{itemName:proposal.intent.itemName}:{})});
+    savePracticePreview(window.SherpaProject.buildGameHtml(nextProject));finish({action:'apply'});
+   },
+   onRetry:pixel=>finish({action:'retry',pixel}),onCancel:()=>finish({action:'cancel'})
+  });
+ });
 }
 function apply(icon,label,controls,redraw=false){
  if(working)return;controls.querySelectorAll('button[aria-pressed]').forEach(b=>b.setAttribute('aria-pressed',String(b.title===label)));
@@ -77,7 +107,7 @@ function modularSlotIntent(label,redraw=false){
  // Preserve the current choice's request verbatim; engine rules are owned by
  // the fixed engine, and full-HTML editing instructions belong to legacy only.
  const request=preset||[`주인공을 ${label} 모습으로 새로 그려 줘.`,`배경을 ${label} 풍경으로 바꿔 줘.`,`장애물을 ${label} 모양으로 바꿔 줘.`][step];
- return {mode:'slot',slot,request:request+(redraw?'\n같은 선택으로 다시 만들어 줘. 그림은 새롭게 그려 줘.':''),...(slot==='item'?{itemName:label}:{})};
+ return {mode:'slot',slot,redraw,freshHero:slot==='hero'&&!redraw,request:request+(redraw?'\n같은 선택으로 다시 만들어 줘. 그림은 새롭게 그려 줘.':''),...(slot==='item'?{itemName:label}:{})};
 }
 function complete(){if(working)return;window.saveClassroomPractice(html,step,true);$('progress').textContent='완성';const a=say('나만의 게임 완성! 🎉','게시판에 저장해서 친구들과 함께 해봐요.');const actions=node('div',null,'completion-actions');const board=node('a','친구들 게임 보기 ↗','share-board-link');board.href=classroomBoardUrl('/board');board.target='_blank';board.rel='noopener';actions.append(...window.createGameShareButtons(()=>html),btn('더 바꾸고 싶어요',()=>{lock(a);customPicker()}),board);a.append(actions);reveal(a)}
 function customPicker(){
@@ -169,7 +199,7 @@ function openCharacterEditor(controls) {
   try { requireEditableProject(); } catch (error) { reveal(say('', error.message)); return; }
   const editor = window.grade1Pixel;
   editor.open({
-    initial: modularProject ? modularProject.assets.pixel : editor.read(html),
+    initial: modularProject?.authoringVersion===3 ? null : modularProject ? modularProject.assets.pixel : editor.read(html),
     onApply(sprite) {
       const changedGame = modularProject ? window.SherpaProject.buildGameHtml(window.SherpaProject.withPixel(modularProject,sprite)) : sprite ? editor.apply(html, sprite) : lesson.game;
       if (!window.saveClassroomPractice(changedGame, 0, false)) {

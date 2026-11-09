@@ -4,14 +4,16 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 const {chromium} = require(path.resolve(__dirname, '../../../70_검수/node_modules/playwright'));
 const dir = path.resolve(__dirname, '../assets/practice/modular');
-const output = path.resolve(__dirname, '../../../85_공룡3_모듈화/2차캡처');
+const output = process.env.MODULAR_CAPTURE_DIR || path.resolve(__dirname, '../../../85_공룡3_모듈화/3차캡처');
 fs.mkdirSync(output, {recursive:true});
 const results = {checks:[], measurements:{}, screenshots:[], requests:[]};
 const check = (name, fn) => {fn();results.checks.push(name);};
 const audioStub = `window.__audioEvents=[];window.AudioContext=class {constructor(){this.state='running';this.currentTime=0;this.sampleRate=44100;this.destination={};}resume(){return Promise.resolve();}createOscillator(){const e={kind:'tone',frequencies:[]};window.__audioEvents.push(e);return {type:'',frequency:{setValueAtTime(v,t){e.frequencies.push([v,t]);},exponentialRampToValueAtTime(v,t){e.frequencies.push([v,t]);}},connect(){},start(t){e.start=t;},stop(t){e.stop=t;}};}createGain(){const e={kind:'gain',values:[]};window.__audioEvents.push(e);return {gain:{setValueAtTime(v,t){e.values.push([v,t]);},exponentialRampToValueAtTime(v,t){e.values.push([v,t]);}},connect(){}};}createBuffer(c,n){return {getChannelData(){return new Float32Array(n);}};}createBufferSource(){const e={kind:'noise'};window.__audioEvents.push(e);return {connect(){},start(t){e.start=t;},stop(t){e.stop=t;}};}createBiquadFilter(){return {frequency:{value:0},connect(){}};}};`;
 const baseProject = () => ({formatVersion:2,engineVersion:'1.0.0',config:{speedMultiplier:1,initialLives:1,itemsEnabled:false,itemName:'별',abilityId:'',soundPreset:'default',muted:false},slots:{hero:{mode:'default'},background:{mode:'default'},obstacle:{mode:'default',style:{sizeScale:1,shape:'rect'}},item:{mode:'default'}},assets:{pixel:null}});
-function game(config={}, pixels=null, audio=false) {
+function game(config={}, pixels=null, audio=false, artwork={}) {
   const p=baseProject();Object.assign(p.config,config);if(pixels){p.slots.hero.mode='pixel';p.assets.pixel=pixels;}
+  for(const name of ['hero','obstacle','item'])if(artwork[name]){p.slots[name].mode='pixel';p.assets[name==='hero'?'pixel':name]=artwork[name];}
+  if(artwork.sizeScale)p.slots.obstacle.style.sizeScale=artwork.sizeScale;
   const metadata=JSON.stringify(p).replace(/</g,'\\u003c');
   return fs.readFileSync(path.join(dir,'shell.html'),'utf8').replace('<!-- SHERPA_GAME_BUNDLE -->',
     '<script>window.__SHERPA_TEST__=true;let seed=87439;Math.random=()=>((seed=(seed*16807)%2147483647)-1)/2147483646;'+(audio?audioStub:'')+'</script>'+
@@ -25,7 +27,7 @@ async function main(){
     const context=await browser.newContext({viewport:{width:768,height:1024}});
     await context.route('**/*',route=>{results.requests.push(route.request().url());route.abort();});
     const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    async function load(config={},pixels=null,audio=false){await page.goto('about:blank');await page.setContent(game(config,pixels,audio));await page.waitForFunction(()=>!!window.__sherpaTest);await page.evaluate(()=>window.__sherpaTest.restart());}
+    async function load(config={},pixels=null,audio=false,artwork={}){await page.goto('about:blank');await page.setContent(game(config,pixels,audio,artwork));await page.waitForFunction(()=>!!window.__sherpaTest);await page.evaluate(()=>window.__sherpaTest.restart());}
     const call=(method,arg)=>page.evaluate(({method,arg})=>window.__sherpaTest[method](arg),{method,arg});
     const shot=async name=>{await page.screenshot({path:path.join(output,name)});results.screenshots.push(name);};
     const apex=()=>page.evaluate(()=>{const t=window.__sherpaTest;t.jump();let min=93,minVisual=Infinity,n=0;do{const s=t.step();min=Math.min(min,s.player.y);minVisual=Math.min(minVisual,s.heroBounds.y+s.headroom);if(++n>100)throw Error('jump did not land');}while(t.snapshot().player.air);return {height:93-min,minVisual,frames:n};});
@@ -58,6 +60,37 @@ async function main(){
     await load({abilityId:'magnet',itemsEnabled:true});await call('fixture',{speed:0,collectibles:[{x:145,y:117}]});const near=await call('step');check('자석 120px 안 접근',()=>assert(near.collectibles[0].x<145));await call('fixture',{collectibles:[{x:250,y:117}]});const far=await call('step');check('자석 120px 밖 유지',()=>assert.equal(far.collectibles[0].x,250));await call('fixture',{collectibles:[{x:55,y:117}]});const picked=await call('step',12);check('선물 수집 1회·보너스 유지',()=>{assert.equal(picked.itemCount,1);assert.equal(picked.itemBonus,10);assert.equal(picked.score,picked.distanceScore+10);});assert.equal((await call('step',30)).itemCount,1);await call('restart');assert.equal((await call('snapshot')).itemBonus,0);
 
     const corners='1'+'0'.repeat(254)+'1';await load({abilityId:'shrink',initialLives:5},corners);await call('activate');await call('fixture',{runningMs:4000,speed:0,obstacles:[{kind:'shard',x:42,y:85}]});const gap=await call('step');check('픽셀 마스크: 투명 영역 충돌 제외 (축소 능력 조합)',()=>{assert.equal(gap.heroBoxes.length,2);assert.equal(gap.lives,5);});await call('fixture',{obstacles:[{kind:'shard',x:62,y:105}]});const pixelHit=await call('step');check('픽셀 마스크: 색칠한 영역 충돌 (축소 능력 조합)',()=>assert.equal(pixelHit.lives,4));await shot('엔진_픽셀_축소_충돌.png');
+    const ring={palette:['#e415a9'],pixels:Array.from({length:16},(_,y)=>y===0||y===15?'0'.repeat(16):'0'+'.'.repeat(14)+'0')};
+    const gift={palette:['#f01234'],pixels:Array.from({length:16},(_,y)=>y<4||y>11?'.'.repeat(16):'.'.repeat(4)+'0'.repeat(8)+'.'.repeat(4))};
+    const filled={palette:['#2088ee'],pixels:Array(16).fill('0'.repeat(16))};
+    for(const kind of ['shard','crag','drifter']){
+      await load({abilityId:'shrink'},null,false,{obstacle:ring,sizeScale:1.3});
+      const full=await call('fixture',{obstacles:[{kind,x:200,count:2}]});
+      const maxBottom=boxes=>Math.max(...boxes.map(b=>b[1]+b[3]));
+      check('픽셀 '+kind+' 묶음: 2개 그림 마스크·비율·바닥 정렬',()=>{assert.equal(full.obstacleBoxes[0].length,120);assert.equal(full.obstacleBoxes[0][0][2],full.obstacleBoxes[0][0][3]);assert(Math.abs(maxBottom(full.obstacleBoxes[0])-(full.obstacleBounds[0].y+full.obstacleBounds[0].h))<1e-9);});
+      await call('activate');const shrunk=await call('snapshot');
+      check('픽셀 '+kind+' 축소: 동일 바닥·크기 배율·충돌 절반',()=>{assert(Math.abs(maxBottom(shrunk.obstacleBoxes[0])-maxBottom(full.obstacleBoxes[0]))<1e-9);assert.equal(shrunk.obstacleBoxes[0][0][2],full.obstacleBoxes[0][0][2]/2);assert.equal(shrunk.obstacleBoxes[0][0][3],full.obstacleBoxes[0][0][3]/2);});
+      await call('step');await shot('엔진_3차픽셀_'+kind+'_바닥.png');
+    }
+    await load({initialLives:5},corners,false,{obstacle:ring});await call('fixture',{runningMs:4000,speed:0,player:{x:170,y:88},obstacles:[{kind:'shard',x:200}]});
+    const hollowPass=await call('step');check('픽셀 장애물 투명 구멍은 충돌하지 않음',()=>assert.equal(hollowPass.lives,5));
+    await call('fixture',{player:{x:174,y:88}});const solidHit=await call('step');
+    check('픽셀 장애물 칠한 외곽선은 충돌·목숨 1 차감',()=>assert.equal(solidHit.lives,4));
+    await load({},null,false,{hero:filled});const standing=await call('snapshot');await call('down');const ducked=await call('snapshot');
+    check('AI 픽셀 캐릭터 숙이기: 가로 확장·세로 납작·동일 색칠 충돌',()=>{assert.equal(ducked.heroBoxes.length,256);assert(Math.abs(ducked.heroBoxes[0][2]/standing.heroBoxes[0][2]-59/44)<1e-9);assert(Math.abs(ducked.heroBoxes[0][3]/standing.heroBoxes[0][3]-25/47)<1e-9);});
+    const tallObstacle={palette:['#e415a9'],pixels:Array(16).fill('.....000000.....')};
+    await load({abilityId:'high',initialLives:5},null,false,{hero:filled,obstacle:tallObstacle,sizeScale:.81});
+    const fractional=await call('fixture',{runningMs:4000,speed:0,player:{x:190,y:52.5,air:false},obstacles:[{kind:'crag',x:200}]});
+    const edgeCollision=await call('step');
+    check('높이 점프 소수좌표: 실제 픽셀의 0.5px 경계 충돌을 빠른 검사에서 보존',()=>{
+      const oldBottom=fractional.heroBounds.y+fractional.heroBounds.h,actualBottom=Math.max(...fractional.heroBoxes.map(b=>b[1]+b[3])),obstacleTop=Math.min(...fractional.obstacleBoxes[0].map(b=>b[1]));
+      assert(Math.abs(oldBottom-99.5)<1e-9);assert(Math.abs(actualBottom-100)<1e-9);assert(Math.abs(obstacleTop-99.5)<1e-9);assert.equal(edgeCollision.lives,4);
+    });
+    await load({itemsEnabled:true,abilityId:'magnet'},null,false,{item:gift});await call('fixture',{speed:0,collectibles:[{x:300,y:70}]});
+    const giftRender=await page.evaluate(()=>{const c=document.getElementById('game').getContext('2d');return {game:[...c.getImageData(306,76,1,1).data],hud:[...c.getImageData(16,33,1,1).data]};});
+    check('선물 16×16 원본과 상단 축소 아이콘에 같은 AI 색',()=>{assert.deepEqual(giftRender.game,[240,18,52,255]);assert.deepEqual(giftRender.hud,[240,18,52,255]);});await shot('엔진_3차선물_아이콘.png');
+    await call('fixture',{collectibles:[{x:55,y:117}]});const pixelPicked=await call('step',12);
+    check('픽셀 선물 수집은 기존16×16 판정·1회점수',()=>{assert.equal(pixelPicked.itemCount,1);assert.equal(pixelPicked.itemBonus,10);assert.equal(pixelPicked.collectibles.length,0);});
     results.measurements.headroom=[];
     for(const viewport of [{width:1024,height:768},{width:768,height:1024},{width:320,height:180}]){
       await page.setViewportSize(viewport);

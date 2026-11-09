@@ -36,6 +36,8 @@
       if (Object.hasOwn(config,'soundPreset') && !global.SherpaProject.soundPresets.includes(config.soundPreset)) fail();
       return {config};
     }
+    if (keys === 'request,slot' && ['hero','obstacle','item'].includes(value.slot)
+      && typeof value.request === 'string' && value.request.trim() && value.request.length <= 2000) return value;
     if (!['code,slot','code,obstacleStyle,slot'].includes(keys) || !Object.hasOwn(names,value.slot) || typeof value.code !== 'string') fail();
     if (Object.hasOwn(value,'obstacleStyle')) {
       if (value.slot !== 'obstacle') fail();
@@ -106,8 +108,11 @@
       aborted(signal);
       let candidate;
       try {
-        const response = await receive(payload,signal,onProgress);
-        candidate = payload.mode === 'route' ? parseRoute(response.raw) : parseSlot(payload.slot,response.raw);
+        if (attempt === 0 && intent.candidate) candidate = intent.candidate;
+        else {
+          const response = await receive(payload,signal,onProgress);
+          candidate = payload.mode === 'route' ? parseRoute(response.raw) : parseSlot(payload.slot,response.raw);
+        }
         if (candidate.unsupported) {
           const error = Error(unsupportedMessage); error.code = 'UNSUPPORTED_CHANGE'; throw error;
         }
@@ -129,5 +134,50 @@
     }
     fail();
   }
-  global.SherpaSlotAI = Object.freeze({receive,parseSlot,parseRoute,apply,unsupportedMessage});
+  function currentPixel(project, slot) {
+    const asset = project.assets[slot === 'hero' ? 'pixel' : slot];
+    return project.slots[slot].mode === 'pixel' && asset ? global.SherpaPixel.toPixel(asset) : undefined;
+  }
+  async function preparePixel(project, intent, signal, onProgress) {
+    const current = intent.freshHero ? undefined : intent.current || (intent.redraw ? currentPixel(project,intent.slot) : undefined);
+    let payload = {mode:'pixel',slot:intent.slot,request:intent.request,...(current ? {current} : {}),...(intent.redraw ? {redraw:true} : {})};
+    for (let attempt = 0; attempt < 2; attempt++) {
+      aborted(signal);
+      try {
+        const response = await receive(payload,signal,onProgress);
+        const raw = response.raw.trim().replace(/^```json\s*\r?\n([\s\S]*?)\r?\n```$/i,'$1');
+        const checked = global.SherpaPixel.validatePixel(intent.slot,JSON.parse(raw));
+        if (!checked.ok) fail();
+        aborted(signal);
+        return {slot:intent.slot,draft:checked.pixel,intent};
+      } catch (error) {
+        aborted(signal);
+        if (attempt === 1) fail();
+        payload = {...payload,retry:true};
+        onProgress?.(0,0);
+      }
+    }
+  }
+  // A proposal is never committed here. The chat owns the explicit editor
+  // confirmation, persistence and preview swap as one successful operation.
+  async function prepare(project, intent, signal, onProgress) {
+    if (intent.mode !== 'route') {
+      if (intent.slot === 'background') return {project:await apply(project,intent,signal,onProgress)};
+      return preparePixel(project,intent,signal,onProgress);
+    }
+    const payload = {mode:'route',artMode:'pixel',request:intent.request,
+      current:project.slots.background.code ? {background:project.slots.background.code} : {},
+      config:{speedMultiplier:project.config.speedMultiplier,initialLives:project.config.initialLives,soundPreset:project.config.soundPreset}};
+    const response = await receive(payload,signal,onProgress), candidate = parseRoute(response.raw);
+    if (candidate.unsupported) { const error = Error(unsupportedMessage); error.code='UNSUPPORTED_CHANGE'; throw error; }
+    if (candidate.config) return {project:global.SherpaProject.withConfig(project,candidate.config)};
+    if (candidate.slot === 'background' && candidate.code) return {project:await apply(project,{mode:'slot',slot:'background',request:intent.request,candidate},signal,onProgress)};
+    if (!candidate.request || !['hero','obstacle','item'].includes(candidate.slot)) fail();
+    return preparePixel(project,{mode:'pixel',slot:candidate.slot,request:candidate.request,redraw:true,current:currentPixel(project,candidate.slot)},signal,onProgress);
+  }
+  async function redraw(project, proposal, edited, signal, onProgress) {
+    const intent = {...proposal.intent,redraw:true,current:edited || proposal.draft};
+    return preparePixel(project,intent,signal,onProgress);
+  }
+  global.SherpaSlotAI = Object.freeze({receive,parseSlot,parseRoute,apply,prepare,redraw,currentPixel,unsupportedMessage});
 })(window);
