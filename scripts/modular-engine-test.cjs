@@ -4,7 +4,7 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 const {chromium} = require(path.resolve(__dirname, '../../../70_검수/node_modules/playwright'));
 const dir = path.resolve(__dirname, '../assets/practice/modular');
-const output = path.resolve(__dirname, '../../../85_공룡3_모듈화/1차캡처');
+const output = path.resolve(__dirname, '../../../85_공룡3_모듈화/2차캡처');
 fs.mkdirSync(output, {recursive:true});
 const results = {checks:[], measurements:{}, screenshots:[], requests:[]};
 const check = (name, fn) => {fn();results.checks.push(name);};

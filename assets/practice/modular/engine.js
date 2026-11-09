@@ -26,8 +26,9 @@
   let last=0, budget=0, nowMs=0, pointerRelease=0, hiddenPaused=false, audio=null, resizeTimer=null;
   let lives=config.initialLives,protectedUntil=0,elapsed=0,abilityUntil=0,readyAt=0,graceUntil=0,extraJumpUsed=false,shieldAvailable=true,blockedObstacle=null;
   let collectibles=[],itemCount=0,itemBonus=0,distanceScore=0,nextItemAt=1500,muted=!!config.muted,lastMilestone=0,lastInversion=0;
-  const slotErrors={};
-  // The first increment accepts fixed defaults only. AI slot validation/installation belongs to phase 2.
+  const slotErrors={},disabledSlots=new Set(),custom=window.SherpaCustomSlots||{};
+  const slotNames={drawHero:'hero',drawBackground:'background',drawObstacle:'obstacle',drawItem:'item'};
+  const customEnabled=name=>slots[slotNames[name]]?.mode==='code' && typeof custom[name]==='function' && !disabledSlots.has(name);
   const activePhase=()=>['running','launch','intro'].includes(phase);
   const active=()=>special&&elapsed<abilityUntil;
   const heroScale=()=>abilityId==='giant'&&active()?2:1;
@@ -75,7 +76,21 @@
   function boxesTouch(a,b){return a[0]<b[0]+b[2]&&a[0]+a[2]>b[0]&&a[1]<b[1]+b[3]&&a[1]+a[3]>b[1];}
   function heroBounds(){const scale=heroScale(),width=player.low?59:44;return {x:player.x+width/2-width*scale/2,y:player.y+47-(player.low?29:47)*scale,w:width*scale,h:(player.low?25:47)*scale};}
   function obstacleBounds(o){const scale=obstacleScale();return {x:o.x,y:o.y+o.type.h*(1-scale),w:o.w*scale,h:o.type.h*scale};}
-  function obstacleBoxes(o){const b=obstacleBounds(o),scale=obstacleScale();return o.boxes.map(a=>[b.x+(1+a[0])*scale,b.y+(1+a[1])*scale,a[2]*scale,a[3]*scale]);}
+  function obstacleBoxes(o){
+    const b=obstacleBounds(o),scale=obstacleScale();
+    if(customEnabled('drawObstacle')){
+      const boxes=[],w=o.type.w*scale,h=o.type.h*scale;
+      for(let i=0;i<o.count;i++){
+        const x=b.x+i*w;
+        if(slots.obstacle.style.shape==='round'){
+          // Ellipse bands use the same local dimensions and scale as the artwork.
+          for(let row=0;row<8;row++){const y=(row+.5)/8*2-1,half=Math.sqrt(1-y*y)*w/2;boxes.push([x+w/2-half,b.y+row*h/8,half*2,h/8]);}
+        }else boxes.push([x,b.y,w,h]);
+      }
+      return boxes;
+    }
+    return o.boxes.map(a=>[b.x+(1+a[0])*scale,b.y+(1+a[1])*scale,a[2]*scale,a[3]*scale]);
+  }
   const pixelColors=['transparent','#172c48','#28a853','#ed5147','#ffca35','#3985e6','#885bcc','#fa8ebe','#935e3d','#ffffff'];
   const pixels=slots.hero.mode==='pixel'&&/^[0-9]{256}$/.test(project.assets.pixel||'')&&/[1-9]/.test(project.assets.pixel)?project.assets.pixel:null;
   let pixelRegion=null,pixelSheet=null;
@@ -83,6 +98,7 @@
   function pixelGeometry(){const w=player.low?59:44,h=player.low?25:47,r=pixelRegion,s=Math.min(w/r.w,h/r.h),scale=heroScale(),anchorX=player.x+w/2,anchorY=player.y+47;const x=Math.round(player.x)+(w-r.w*s)/2,y=Math.round(player.y)+(player.low?18:0)+h-r.h*s;return {x:anchorX+(x-anchorX)*scale,y:anchorY+(y-anchorY)*scale,s:s*scale};}
   function heroBoxes(){
     if(pixels){const r=pixelRegion,g=pixelGeometry(),boxes=[];for(let y=0;y<r.h;y++)for(let x=0;x<r.w;x++)if(pixels[(y+r.t)*16+x+r.l]!=='0')boxes.push([g.x+x*g.s,g.y+y*g.s,g.s,g.s]);return boxes;}
+    if(customEnabled('drawHero')){const b=heroBounds();return [[b.x,b.y,b.w,b.h]];}
     const scale=heroScale(),w=player.low?59:44;return(player.low?LOW_BOXES:RUN_BOXES).map(a=>[player.x+w/2+(1+a[0]-w/2)*scale,player.y+47+(1+a[1]-47)*scale,a[2]*scale,a[3]*scale]);
   }
   function hits(o){
@@ -185,7 +201,8 @@
     loadAtlas(0);
   }
   function drawSlot(name,v,draw,geometry){
-    let failed=false;pen.save();try{if(geometry){pen.translate(geometry.x,geometry.y);pen.scale(geometry.sx||1,geometry.sy||1);pen.beginPath();pen.rect(0,0,geometry.w,geometry.h);pen.clip();}draw(pen,Object.freeze(v));slotErrors[name]=0;}catch{failed=true;slotErrors[name]=(slotErrors[name]||0)+1;}finally{pen.restore();}
+    const usesCustom=customEnabled(name);
+    let failed=false;pen.save();try{if(geometry){pen.translate(geometry.x,geometry.y);pen.scale(geometry.sx||1,geometry.sy||1);pen.beginPath();pen.rect(0,0,geometry.w,geometry.h);pen.clip();}if(usesCustom)custom[name](window.SherpaDrawingContext(pen),Object.freeze(v));else draw(pen,Object.freeze(v));if(!disabledSlots.has(name))slotErrors[name]=0;}catch{failed=true;slotErrors[name]=(slotErrors[name]||0)+1;if(usesCustom&&slotErrors[name]>=3)disabledSlots.add(name);}finally{pen.restore();}
     if(failed){pen.save();try{if(geometry){pen.translate(geometry.x,geometry.y);pen.scale(geometry.sx||1,geometry.sy||1);pen.beginPath();pen.rect(0,0,geometry.w,geometry.h);pen.clip();}defaults[name](pen,Object.freeze(v));}catch{}finally{pen.restore();}}
   }
   function drawDinosaur(){
@@ -196,7 +213,7 @@
     const pose=phase==='crashed'?'dead':phase==='waiting'?'stand':player.air?'jump':low?'duck':'run',scale=heroScale(),w=low?59:44,h=low?25:47;
     const x=player.x+w/2-w*scale/2,y=player.y+47+((low?18:0)-47)*scale;
     let drawn=false;
-    if(dinosaurAtlasReady&&dinosaurAtlas){pen.save();try{pen.imageSmoothingEnabled=false;pen.drawImage(dinosaurAtlas,frame*88,0,88,94,x,y,w*scale,h*scale);drawn=true;}catch{dinosaurAtlasReady=false;dinosaurAtlas=null;}finally{pen.restore();}}
+    if(!customEnabled('drawHero')&&dinosaurAtlasReady&&dinosaurAtlas){pen.save();try{pen.imageSmoothingEnabled=false;pen.drawImage(dinosaurAtlas,frame*88,0,88,94,x,y,w*scale,h*scale);drawn=true;}catch{dinosaurAtlasReady=false;dinosaurAtlas=null;}finally{pen.restore();}}
     if(!drawn)drawSlot('drawHero',{t:animationMs,pose,frame,w,h},defaults.drawHero,{x,y,w,h,sx:scale,sy:scale});
   }
   function drawObstacle(o){const b=obstacleBounds(o),scale=obstacleScale();for(let index=0;index<o.count;index++)drawSlot('drawObstacle',{t:animationMs,w:o.type.w,h:o.type.h,kind:o.type.id,index},defaults.drawObstacle,{x:b.x+index*o.type.w*scale,y:b.y,w:o.type.w,h:o.type.h,sx:scale,sy:scale});}
@@ -257,7 +274,7 @@
   }
   function installSoundButton(){if(config.soundPreset==='default')return;const button=document.createElement('button');button.id='soundBtn';button.type='button';button.style.cssText='position:fixed;right:12px;top:28px;z-index:6;border:1px solid #a9b9b2;border-radius:7px;background:#fff;color:#344e49;padding:4px 8px;font:600 12px system-ui;min-height:32px';const update=()=>{button.textContent=muted?'🔊 소리 켜기':'🔇 소리 끄기';button.setAttribute('aria-pressed',String(!muted));button.setAttribute('aria-label',muted?'소리 켜기':'소리 끄기');};button.onclick=()=>{muted=!muted;audioReady();update();};document.body.append(button);update();}
   if(window.__SHERPA_TEST__===true){
-    const snapshot=()=>({phase,speed,lives,protectedUntil,elapsed,score,distanceScore,itemBonus,itemCount,player:{...player},abilityState:abilityState(),abilityUntil,readyAt,heroBounds:heroBounds(),heroBoxes:heroBoxes(),obstacleBounds:items.map(obstacleBounds),obstacleBoxes:items.map(obstacleBoxes),obstacles:items.map(o=>({kind:o.type.id,x:o.x,y:o.y,count:o.count,w:o.w})),collectibles:collectibles.map(o=>({...o})),worldW,worldH:WORLD_H,headroom,slotErrors:{...slotErrors},dinosaurAtlasReady});
+    const snapshot=()=>({phase,speed,lives,protectedUntil,elapsed,score,distanceScore,itemBonus,itemCount,player:{...player},abilityState:abilityState(),abilityUntil,readyAt,heroBounds:heroBounds(),heroBoxes:heroBoxes(),obstacleBounds:items.map(obstacleBounds),obstacleBoxes:items.map(obstacleBoxes),obstacles:items.map(o=>({kind:o.type.id,x:o.x,y:o.y,count:o.count,w:o.w})),collectibles:collectibles.map(o=>({...o})),worldW,worldH:WORLD_H,headroom,slotErrors:{...slotErrors},disabledSlots:[...disabledSlots],dinosaurAtlasReady});
     window.__sherpaTest=Object.freeze({snapshot,step(n=1){for(let i=0;i<n;i++){nowMs+=STEP;tick();}paint();return snapshot();},restart(){resetRun();updateAbilityHud();paint();},jump:pressJump,releaseJump,down:pressDown,up:releaseDown,activate:activateAbility,fixture(v){if(v.phase)phase=v.phase;if(v.player)Object.assign(player,v.player);if(v.speed!==undefined)speed=v.speed;if(v.runningMs!==undefined)runningMs=v.runningMs;if(v.elapsed!==undefined)elapsed=v.elapsed;if(v.lives!==undefined)lives=v.lives;if(v.distance!==undefined)distance=v.distance;if(v.abilityUntil!==undefined)abilityUntil=v.abilityUntil;if(v.readyAt!==undefined)readyAt=v.readyAt;if(v.collectibles)collectibles=v.collectibles.map(o=>({w:16,h:16,...o}));if(v.obstacles)items=v.obstacles.map(o=>{const type=TYPES.find(t=>t.id===o.kind)||TYPES[0],count=o.count||1,w=type.w*count,boxes=type.boxes.map(b=>b.slice());if(count>1){boxes[1][2]=w-boxes[0][2]-boxes[2][2];boxes[2][0]=w-boxes[2][2];}return {type,count,x:o.x,y:o.y??type.y[0],w,boxes,gap:200,offset:0,followed:true};});updateAbilityHud();paint();return snapshot();}});
   }
 

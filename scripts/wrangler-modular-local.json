@@ -1,0 +1,19 @@
+{
+  "name": "dino3-modular-local-only",
+  "main": "../modules/entry.js",
+  "compatibility_date": "2026-10-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "no_bundle": true,
+  "assets": {
+    "directory": "../assets",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+  "durable_objects": {
+    "bindings": [{"name": "GAME_RATE_LIMIT", "class_name": "GameRateLimit"}]
+  },
+  "migrations": [{"tag": "local-rate-only", "new_sqlite_classes": ["GameRateLimit"]}],
+  "secrets": {"required": ["SHERPA_OPENROUTER_KEY"]}
+}

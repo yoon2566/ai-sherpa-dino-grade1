@@ -48,17 +48,18 @@ function prompt(label){
  const request=preset||[`주인공을 ${label} 모습으로 새로 그려 줘.`,`배경을 ${label} 풍경으로 바꿔 줘.`,`장애물을 ${label} 모양으로 바꿔 줘.`][step];
  if(!request)throw Error('선택지를 다시 골라 주세요.');return finishPrompt(request+'\n'+(stage.activity?.rules||'')+'\n'+(stage.activity?.optionRules?.[label]||''));
 }
-async function generate(request,message,controls,onSuccess,abilityOverride,projectChange){
+async function generate(request,message,controls,onSuccess,abilityOverride,projectChange,slotIntent){
  if(working)return;working=true;lock(controls);if(speech)speech.abort();$('conversation').append(node('div',message,'user'));
  const a=say('','코드 0줄 · AI 응답을 기다리고 있어요…'),p=a.querySelector('p'),controller=new AbortController();const timer=setTimeout(()=>controller.abort(new DOMException('생성 시간 초과','TimeoutError')),180000),cancel=btn('멈추기',()=>controller.abort());a.append(cancel);
  $('busy').hidden=false;$('busy').textContent=p.textContent;$('status').textContent='AI가 수정 중';$('jump').disabled=$('restart').disabled=true;bottom();
  try{
   requireEditableProject();
-  // Phase one deliberately keeps drawing slots unchanged, including free requests.
-  // Only the known local settings and pixel editor can change a modular project.
-  const result=modularProject?{html:window.SherpaProject.buildGameHtml(projectChange?projectChange(modularProject):modularProject)}:await generateClassroomEdit({prompt:request,baseHtml:html,abilityOverride},controller.signal,(length,lines)=>{p.textContent=$('busy').textContent=lines?'코드 '+lines.toLocaleString('ko-KR')+'줄 · '+length.toLocaleString('ko-KR')+'자 작성 중…':'코드 0줄 · AI 응답을 기다리고 있어요…'});
+  const progress=(length,lines)=>{p.textContent=$('busy').textContent=lines?'코드 '+lines.toLocaleString('ko-KR')+'줄 · '+length.toLocaleString('ko-KR')+'자 작성 중…':'코드 0줄 · AI 응답을 기다리고 있어요…'};
+  const nextProject=modularProject?(slotIntent?await window.SherpaSlotAI.apply(modularProject,slotIntent,controller.signal,progress):projectChange?projectChange(modularProject):modularProject):null;
+  const result=nextProject?{html:window.SherpaProject.buildGameHtml(nextProject)}:await generateClassroomEdit({prompt:request,baseHtml:html,abilityOverride},controller.signal,progress);
+  if(controller.signal.aborted)throw controller.signal.reason;
   savePracticePreview(result.html);p.textContent='바꿨어요! 미리보기에서 게임을 해봐요.';onSuccess(a);
- }catch(e){console.error('[공룡3 생성 실패]',e);p.className='error';p.textContent=controller.signal.aborted?(controller.signal.reason?.name==='TimeoutError'?'시간이 오래 걸려요. 다시 해봐요.':'멈췄어요. 다시 골라 주세요.'):e.code==='MISSING_COLLECTIBLES'?e.message:'잘 안 됐어요. 다시 해봐요.';lock(controls,false);$('status').textContent='이전 게임 유지';a.append(btn('입력으로 돌아가기',()=>reveal(controls)))}
+ }catch(e){console.error('[공룡3 생성 실패]',e);p.className='error';p.textContent=controller.signal.aborted?(controller.signal.reason?.name==='TimeoutError'?'시간이 오래 걸려요. 다시 해봐요.':'멈췄어요. 다시 골라 주세요.'):['MISSING_COLLECTIBLES','UNSUPPORTED_CHANGE'].includes(e.code)?e.message:'잘 안 됐어요. 다시 해봐요.';lock(controls,false);$('status').textContent='이전 게임 유지';a.append(btn('입력으로 돌아가기',()=>reveal(controls)))}
  finally{clearTimeout(timer);cancel.remove();working=false;$('busy').hidden=true;$('jump').disabled=$('restart').disabled=false;bottom()}
 }
 function apply(icon,label,controls,redraw=false){
@@ -68,7 +69,15 @@ function apply(icon,label,controls,redraw=false){
  generate(request,`${icon} ${label}${redraw?', 다시 만들어 주세요!':'! 이걸로 해볼래요.'}`,controls,a=>{
   if(step===0){appendCharacterResultActions(a,actions=>{lock(actions);apply(icon,label,controls,true)});return}
   const actions=node('div',null,'actions');actions.append(btn('다시 그리기',()=>{if(working)return;lock(actions);apply(icon,label,controls,true)}),btn(step===7?'내 생각 더하기 →':'다음 단계 →',()=>{if(working)return;lock(actions);step++;next()},'primary'));a.append(actions);
- },undefined,project=>window.SherpaProject.withConfig(project,step===3?{speedMultiplier:Number(label.replace('배',''))}:step===4?{initialLives:Number(label.replace('개',''))}:step===5?{itemsEnabled:true,itemName:label}:step===7?{soundPreset:label}:{}));
+ },undefined,project=>window.SherpaProject.withConfig(project,step===3?{speedMultiplier:Number(label.replace('배',''))}:step===4?{initialLives:Number(label.replace('개',''))}:step===7?{soundPreset:label}:{}),modularSlotIntent(label,redraw));
+}
+function modularSlotIntent(label,redraw=false){
+ const slot={0:'hero',1:'background',2:'obstacle',5:'item'}[step];if(!slot)return null;
+ const stage=lesson.stages[step],preset=stage.questions[0].issues.find(o=>o.label===label)?.request;
+ // Preserve the current choice's request verbatim; engine rules are owned by
+ // the fixed engine, and full-HTML editing instructions belong to legacy only.
+ const request=preset||[`주인공을 ${label} 모습으로 새로 그려 줘.`,`배경을 ${label} 풍경으로 바꿔 줘.`,`장애물을 ${label} 모양으로 바꿔 줘.`][step];
+ return {mode:'slot',slot,request:request+(redraw?'\n같은 선택으로 다시 만들어 줘. 그림은 새롭게 그려 줘.':''),...(slot==='item'?{itemName:label}:{})};
 }
 function complete(){if(working)return;window.saveClassroomPractice(html,step,true);$('progress').textContent='완성';const a=say('나만의 게임 완성! 🎉','게시판에 저장해서 친구들과 함께 해봐요.');const actions=node('div',null,'completion-actions');const board=node('a','친구들 게임 보기 ↗','share-board-link');board.href=classroomBoardUrl('/board');board.target='_blank';board.rel='noopener';actions.append(...window.createGameShareButtons(()=>html),btn('더 바꾸고 싶어요',()=>{lock(a);customPicker()}),board);a.append(actions);reveal(a)}
 function customPicker(){
@@ -95,7 +104,7 @@ function customForm(icon,label,example){
  });mic.setAttribute('aria-pressed','false');
  actions.append(mic,btn('이렇게 바꾸기 ✨',()=>{
   const text=input.value.trim();if(!text){help.textContent='바꾸고 싶은 내용을 먼저 적거나 말해 주세요.';input.focus();return}
-  generate(finishPrompt(`아이가 바꾸고 싶은 부분: ${label}\n아이의 요청: ${text}`),icon+' '+text,a,result=>{const buttons=node('div',null,'actions');buttons.append(btn('더 바꾸기',()=>{if(working)return;lock(buttons);customPicker()}),btn('완성하기 ✓',()=>{if(working)return;lock(buttons);complete()},'primary'));result.append(buttons)});
+  generate(finishPrompt(`아이가 바꾸고 싶은 부분: ${label}\n아이의 요청: ${text}`),icon+' '+text,a,result=>{const buttons=node('div',null,'actions');buttons.append(btn('더 바꾸기',()=>{if(working)return;lock(buttons);customPicker()}),btn('완성하기 ✓',()=>{if(working)return;lock(buttons);complete()},'primary'));result.append(buttons)},undefined,undefined,{mode:'route',request:`아이가 바꾸고 싶은 부분: ${label}\n아이의 요청: ${text}`});
  },'primary'),btn('다른 부분 고르기',()=>{if(working)return;if(speech)speech.abort();lock(a);customPicker()}));a.append(input,help,actions);reveal(a);
 }
 window.addEventListener('pagehide',()=>{if(speech)speech.abort()});

@@ -37,15 +37,15 @@
     for (const key of Object.keys(result.config)) result.config[key] = config[key];
     for (const name of ['hero', 'background', 'obstacle', 'item']) {
       const slot = slots[name];
-      // Phase one accepts trusted defaults only. No downloaded/AI code executes
-      // before phase two supplies the slot validator and isolated trial renderer.
-      if (!isObject(slot) || slot.code || !(['default', ...(name === 'hero' ? ['pixel'] : [])].includes(slot.mode))) invalid();
+      if (!isObject(slot) || !(['default', 'code', ...(name === 'hero' ? ['pixel'] : [])].includes(slot.mode))) invalid();
+      if (slot.mode === 'code') {
+        if (!global.SherpaSlotSafety?.validateStatic(name, slot.code).ok) invalid();
+        result.slots[name].code = slot.code;
+      } else if (slot.code) invalid();
       result.slots[name].mode = slot.mode;
     }
     const style = slots.obstacle.style;
-    // Phase one uses the original obstacle boxes. Round shapes are reserved for
-    // the validated AI obstacle renderer/collision contract in phase two.
-    if (!isObject(style) || !Number.isFinite(style.sizeScale) || style.sizeScale < 0.7 || style.sizeScale > 1.3 || style.shape !== 'rect') invalid();
+    if (!isObject(style) || !Number.isFinite(style.sizeScale) || style.sizeScale < 0.7 || style.sizeScale > 1.3 || !['rect', 'round'].includes(style.shape)) invalid();
     result.slots.obstacle.style = {sizeScale: style.sizeScale, shape: style.shape};
     if (assets.pixel !== null && !validPixels(assets.pixel)) invalid();
     if (slots.hero.mode === 'pixel' && !validPixels(assets.pixel)) invalid();
@@ -84,8 +84,14 @@
     if (!bundle) throw Error('게임 엔진이 아직 준비되지 않았어요.');
     const normalized = normalizeProject(project);
     const script = source => '<script>\n' + source.replace(/<\/script/gi, '<\\/script') + '\n</script>';
+    const custom = Object.entries(normalized.slots).filter(([,slot]) => slot.mode === 'code');
+    // These functions were AST-checked above. Runtime metadata is never eval'd.
+    const customSource = custom.length ? '"use strict";\nwindow.SherpaDrawingContext=' + global.SherpaSlotSafety.drawingContext.toString() + ';\nwindow.SherpaCustomSlots=Object.freeze({' + custom.map(([name,slot]) => {
+      const fn = global.SherpaSlotSafety.names[name];
+      return JSON.stringify(fn) + ':(()=>{\n' + slot.code + '\nreturn ' + fn + ';})()';
+    }).join(',\n') + '});' : '';
     const payload = '<script type="application/json" id="sherpa-project">' + safeJson(normalized) + '</script>\n'
-      + script(bundle.defaults) + '\n' + script(bundle.engine);
+      + script(bundle.defaults) + '\n' + (customSource ? script(customSource) + '\n' : '') + script(bundle.engine);
     const html = bundle.shell.replace(BUNDLE_MARKER, () => payload);
     if (new TextEncoder().encode(html).byteLength > MAX_HTML_BYTES) throw Error('게임 파일이 너무 커요. 이전 게임을 유지해요.');
     return html;
@@ -105,6 +111,14 @@
     return normalizeProject(next);
   }
 
-  global.SherpaProject = Object.freeze({ENGINE_VERSION, abilityIds, soundPresets, init, createProject, normalizeProject, inspectHtml, buildGameHtml, withConfig, withPixel});
+  function withSlot(project, name, code, style) {
+    if (!global.SherpaSlotSafety?.isApproved(name, code)) invalid();
+    const next = copy(project);
+    next.slots[name] = {mode:'code',code};
+    if (name === 'obstacle') next.slots.obstacle.style = style || copy(project.slots.obstacle.style);
+    return normalizeProject(next);
+  }
+
+  global.SherpaProject = Object.freeze({ENGINE_VERSION, abilityIds, soundPresets, init, createProject, normalizeProject, inspectHtml, buildGameHtml, withConfig, withPixel, withSlot});
   global.buildGameHtml = buildGameHtml;
 })(window);
