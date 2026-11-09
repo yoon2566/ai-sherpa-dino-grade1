@@ -303,7 +303,39 @@ $('manage-form').addEventListener('submit',async event=>{
     else $('manage-error').textContent=error.message;
   }finally{manageBusy=false;$('manage-submit').disabled=$('manage-cancel').disabled=$('manage-title').disabled=$('manage-author').disabled=false}
 });
+// Reuse the practice controller and keep the live game iframe in place.
+const gamePanel=$('viewer-game'),expandButton=$('expand-game');
+const closeGameExpand=window.bindGameExpand(gamePanel,expandButton);
+const gameExpanded=()=>gamePanel.classList.contains('expanded-game');
+let embeddedSheet=null,embeddedStyle=null;
+function collapseGame(){closeGameExpand();expandButton.focus({preventScroll:true})}
+$('collapse-game').addEventListener('click',collapseGame);
+// Sandbox key events do not bubble. Accept only the current game's close request.
+window.addEventListener('message',event=>{
+  if(event.source===$('play').querySelector('iframe')?.contentWindow&&event.data?.channel==='board-game-escape'&&gameExpanded())collapseGame();
+});
+window.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&gameExpanded()){event.preventDefault();event.stopImmediatePropagation();collapseGame()}
+},true);
+new MutationObserver(()=>{
+  const active=gameExpanded();$('collapse-game').hidden=!active;
+  // Same-origin lesson fallback when native fullscreen is unavailable.
+  if(active&&parent!==window&&!embeddedSheet){
+    try{embeddedSheet=window.frameElement?.closest('.board-sheet');if(embeddedSheet){embeddedStyle=embeddedSheet.getAttribute('style');Object.assign(embeddedSheet.style,{position:'fixed',inset:'0',width:'100%',height:'100dvh',maxWidth:'none',zIndex:'100',borderRadius:'0'})}}catch{}
+  }else if(!active&&embeddedSheet){
+    if(embeddedStyle===null)embeddedSheet.removeAttribute('style');else embeddedSheet.setAttribute('style',embeddedStyle);
+    embeddedSheet=null;
+  }
+  if(active)$('play').querySelector('iframe')?.focus({preventScroll:true});
+}).observe(gamePanel,{attributes:true,attributeFilter:['class']});
+function gameDocument(html){
+  const bridge='<script>window.addEventListener("keydown",function(e){if(e.key==="Escape"){parent.postMessage({channel:"board-game-escape"},"*")}},true);<\/script>';
+  const head=/<head\b[^>]*>/i;
+  return head.test(html)?html.replace(head,match=>match+bridge):bridge+html;
+}
+
 async function openWork(id,source){
+  closeGameExpand();expandButton.hidden=true;
   if(!contextReady||!/^[a-f0-9]{32}$/.test(id))return;
   returnFocus=source||$('refresh');viewerRequest?.abort();const controller=new AbortController();viewerRequest=controller;
   const timer=setTimeout(()=>controller.abort(),20000);
@@ -315,13 +347,14 @@ async function openWork(id,source){
     if(viewerRequest!==controller||!$('viewer').open)return;
     $('work-title').textContent=item.title;$('work-by').textContent=item.author+' · '+date(item.created_at);
     $('viewer-heart').append(heartButton(item,'viewer-heart-button'));void readHearts([id]);
-    const frame=document.createElement('iframe');frame.title=item.title;frame.setAttribute('sandbox','allow-scripts allow-pointer-lock');frame.setAttribute('allow','fullscreen');frame.referrerPolicy='no-referrer';frame.srcdoc=item.html;
+    const frame=document.createElement('iframe');frame.title=item.title;frame.setAttribute('sandbox','allow-scripts allow-pointer-lock');frame.setAttribute('allow','fullscreen');frame.referrerPolicy='no-referrer';frame.srcdoc=gameDocument(item.html);
     frame.addEventListener('load',()=>{if(frame.isConnected)frame.focus({preventScroll:true})});$('play').replaceChildren(frame);
-    $('download').href=apiUrl('/api/board/'+id+'/download');$('download').hidden=false;
+    $('download').href=apiUrl('/api/board/'+id+'/download');$('download').hidden=false;expandButton.hidden=false;
   }catch(error){if(viewerRequest===controller&&$('viewer').open)$('play').replaceChildren(element('div','viewer-loading',error.name==='AbortError'?'연결이 지연되고 있어요. 닫은 뒤 다시 열어 주세요.':error.message))}
   finally{clearTimeout(timer)}
 }
 function closeWork(){
+  closeGameExpand();
   viewerRequest?.abort();viewerRequest=null;$('play').replaceChildren();$('viewer-heart').replaceChildren();$('viewer').close();
   const url=new URL(location.href);url.searchParams.delete('work');history.replaceState(null,'',url);if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});
 }
@@ -329,7 +362,7 @@ function chooseScope(value){
   if(busy||!contextReady||!room||room.boardVisibility==='class'||scope===value)return;
   scope=value;page=0;nextCursor=null;cursors.splice(1);updateScopeUrl();loadPage(0);
 }
-$('close').addEventListener('click',closeWork);$('viewer').addEventListener('cancel',event=>{event.preventDefault();closeWork()});
+$('close').addEventListener('click',closeWork);$('viewer').addEventListener('cancel',event=>{event.preventDefault();if(gameExpanded())collapseGame();else closeWork()});
 $('refresh').addEventListener('click',()=>{if(busy)return;page=0;nextCursor=null;cursors.splice(1);loadPage(0)});
 $('previous').addEventListener('click',()=>loadPage(page-1));$('next').addEventListener('click',()=>{if(!nextCursor||busy)return;cursors[page+1]=nextCursor;loadPage(page+1)});
 $('scope-all').addEventListener('click',()=>chooseScope('all'));$('scope-room').addEventListener('click',()=>chooseScope('room'));
