@@ -1,8 +1,6 @@
-// The same 16×16 pattern travels inside the student's standalone game.
+// Bitmap editor; the original 16×16 string format remains available for legacy games.
 (() => {
   'use strict';
-  const size = 16;
-  const empty = '0'.repeat(size * size);
   const palette = [
     ['지우개', 'transparent'], ['남색', '#172c48'], ['초록', '#28a853'],
     ['빨강', '#ed5147'], ['노랑', '#ffca35'], ['파랑', '#3985e6'],
@@ -105,43 +103,55 @@
     return output;
   }
 
-  function open({initial, draft, slot = 'hero', onApply, onRetry, onCancel}) {
+  function open({initial, draft, slot = 'hero', width = 16, height = 16, description, onApply, onRetry, onCancel}) {
     if (document.querySelector('.grade1-pixel-editor')) return;
     const ai = draft !== undefined;
-    const indices = '0123456789abc';
-    const aiIndices = '0123456789ab';
+    const indices = '0123456789abcdefghijklmnopqrstuvwxyz';
+    const aiIndices = '0123456789abcdefghijklmnopqrstuvwxyz';
     const colors = palette.map(entry => entry.slice());
-    let seed = valid(initial) ? initial : empty;
-    if (ai) {
-      if (!['hero', 'obstacle', 'item'].includes(slot) || !draft || !Array.isArray(draft.palette)
-          || draft.palette.length < 1 || draft.palette.length > 12
-          || draft.palette.some(value => typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value))
-          || !Array.isArray(draft.pixels) || draft.pixels.length !== size
-          || draft.pixels.some(row => typeof row !== 'string' || row.length !== size
-            || Array.from(row).some(pixel => pixel !== '.' && (aiIndices.indexOf(pixel) < 0 || aiIndices.indexOf(pixel) >= draft.palette.length)))) {
+    const bitmap = ai ? draft : initial && typeof initial === 'object' ? initial : null;
+    if (bitmap) {
+      height = bitmap.pixels?.length;
+      width = bitmap.pixels?.[0]?.length;
+    }
+    if (![[16,16],[44,47],[24,24]].some(([w,h]) => width === w && height === h)) throw Error('잘 안 됐어요. 다시 해봐요.');
+    const bitmapOutput = ai || !!bitmap || width !== 16 || height !== 16;
+    let seed = width === 16 && height === 16 && valid(initial) ? initial : '0'.repeat(width * height);
+    if (ai || bitmap) {
+      if (!['hero', 'obstacle', 'item'].includes(slot) || !bitmap || !Array.isArray(bitmap.palette)
+          || bitmap.palette.length < 1 || bitmap.palette.length > 21
+          || bitmap.palette.some(value => typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value))
+          || !Array.isArray(bitmap.pixels) || bitmap.pixels.length !== height
+          || bitmap.pixels.some(row => typeof row !== 'string' || row.length !== width
+            || Array.from(row).some(pixel => pixel !== '.' && (aiIndices.indexOf(pixel) < 0 || aiIndices.indexOf(pixel) >= bitmap.palette.length)))) {
         throw Error('잘 안 됐어요. 다시 해봐요.');
       }
-      colors.splice(1, colors.length - 1, ...draft.palette.map((value, index) => ['AI 색 ' + (index + 1), value.toLowerCase()]));
+      colors.splice(1, colors.length - 1, ...bitmap.palette.map((value, index) => ['AI 색 ' + (index + 1), value.toLowerCase()]));
       for (const entry of palette.slice(1)) {
-        if (colors.length === 13) break;
+        if (colors.length === 22) break;
         if (!colors.some(color => color[1] === entry[1])) colors.push(entry.slice());
       }
-      seed = draft.pixels.join('').split('').map(pixel => pixel === '.' ? '0' : indices[aiIndices.indexOf(pixel) + 1]).join('');
+      seed = bitmap.pixels.join('').split('').map(pixel => pixel === '.' ? '0' : indices[aiIndices.indexOf(pixel) + 1]).join('');
     }
     const pixels = seed.split('');
     const hasPaint = () => pixels.some(pixel => pixel !== '0');
     const artwork = () => ({
       palette: colors.slice(1).map(entry => entry[1]),
-      pixels: Array.from({length: size}, (_, y) => pixels.slice(y * size, (y + 1) * size)
+      pixels: Array.from({length: height}, (_, y) => pixels.slice(y * width, (y + 1) * width)
         .map(pixel => pixel === '0' ? '.' : aiIndices[indices.indexOf(pixel) - 1]).join(''))
     });
     const dialog = document.createElement('dialog');
     dialog.className = 'grade1-pixel-editor';
+    if (width !== 16 || height !== 16) dialog.classList.add('pixel-detailed');
     dialog.setAttribute('aria-labelledby', 'grade1-pixel-heading');
     dialog.innerHTML = '<h2 id="grade1-pixel-heading">내 캐릭터 그리기</h2>'
       + '<p>색을 고르고 칸을 눌러 그려요.</p><div class="pixel-workspace">'
-      + '<canvas width="320" height="320" tabindex="0" aria-label="16칸 곱하기 16칸 그림판. 방향키로 이동하고 스페이스바로 칠해요."></canvas>'
+      + '<canvas width="' + width * 20 + '" height="' + height * 20 + '" tabindex="0" aria-label="' + width + '칸 곱하기 ' + height + '칸 그림판. 방향키로 이동하고 스페이스바로 칠해요."></canvas>'
       + '<div class="pixel-tools"><div class="pixel-palette" role="group" aria-label="그림 색"></div>'
+      + '<div class="pixel-brushes" role="group" aria-label="붓 크기">'
+      + '<button type="button" data-brush="1">가는 붓</button>'
+      + '<button type="button" data-brush="3">중간 붓</button>'
+      + '<button type="button" data-brush="5">굵은 붓</button></div>'
       + '<button type="button" class="pixel-eraser">지우개</button>'
       + '<button type="button" class="pixel-undo">되돌리기</button>'
       + '<button type="button" class="pixel-clear">모두 지우기</button></div></div>'
@@ -150,9 +160,11 @@
       + '<button type="button" class="pixel-apply">이 캐릭터로 달리기</button></div>';
     const find = selector => dialog.querySelector(selector);
     if (ai) {
-      find('h2').textContent = {hero:'AI가 그린 밑그림이에요', obstacle:'AI가 그린 장애물이에요', item:'AI가 그린 선물이에요'}[slot];
-      find('p').textContent = '마음에 안 드는 칸을 고쳐 봐요. 다 되면 아래 버튼을 눌러요.';
-      find('.pixel-cancel').textContent = '다시 그려줘';
+      find('h2').textContent = description
+        ? {hero:'내 캐릭터 그리기', obstacle:'내 장애물 그리기', item:'내 선물 그리기'}[slot]
+        : {hero:'AI가 그린 밑그림이에요', obstacle:'AI가 그린 장애물이에요', item:'AI가 그린 선물이에요'}[slot];
+      find('p').textContent = description || '마음에 안 드는 칸을 고쳐 봐요. 다 되면 아래 버튼을 눌러요.';
+      find('.pixel-cancel').textContent = onRetry ? '다시 그려줘' : '취소';
       find('.pixel-apply').textContent = {hero:'이 캐릭터로 달리기 ✓', obstacle:'이 장애물로 정하기 ✓', item:'이 선물로 정하기 ✓'}[slot];
       const close = document.createElement('button');
       close.type = 'button'; close.className = 'pixel-close'; close.textContent = '✕';
@@ -161,26 +173,30 @@
       dialog.prepend(close);
     }
     const canvas = find('canvas'), ctx = canvas.getContext('2d');
+    canvas.style.aspectRatio = width + ' / ' + height;
     const applyButton = find('.pixel-apply'), undoButton = find('.pixel-undo');
-    let color = 1, cursor = 0, stroke = null, keyboardCursor = false, applying = false, outcome = 'cancel';
+    let color = 1, brush = 3, cursor = 0, stroke = null, keyboardCursor = false, applying = false, outcome = 'cancel';
     const history = [], swatches = [];
     function refresh() {
       for (let i = 0; i < pixels.length; i++) {
-        const x = i % size, y = Math.floor(i / size);
+        const x = i % width, y = Math.floor(i / width);
         ctx.fillStyle = pixels[i] === '0' ? ((x + y) % 2 ? '#e5edf3' : '#fff') : colors[indices.indexOf(pixels[i])][1];
         ctx.fillRect(x * 20, y * 20, 20, 20);
       }
-      ctx.strokeStyle = '#9aaebd';
+      ctx.strokeStyle = '#e8eef5';
       ctx.lineWidth = 1; ctx.beginPath();
-      for (let j = 1; j < size; j++) {
+      for (let j = 1; j < width; j++) {
         const v = j * 20 + 0.5;
-        ctx.moveTo(v, 0); ctx.lineTo(v, 320);
-        ctx.moveTo(0, v); ctx.lineTo(320, v);
+        ctx.moveTo(v, 0); ctx.lineTo(v, canvas.height);
+      }
+      for (let j = 1; j < height; j++) {
+        const v = j * 20 + 0.5;
+        ctx.moveTo(0, v); ctx.lineTo(canvas.width, v);
       }
       ctx.stroke();
       if (keyboardCursor) {
         ctx.lineWidth = 3; ctx.strokeStyle = '#1671cd';
-        ctx.strokeRect(cursor % size * 20 + 2, Math.floor(cursor / size) * 20 + 2, 16, 16);
+        ctx.strokeRect(cursor % width * 20 + 2, Math.floor(cursor / width) * 20 + 2, 16, 16);
       }
       find('.pixel-clear').disabled = !hasPaint();
       undoButton.disabled = history.length === 0;
@@ -194,6 +210,11 @@
       color = index;
       swatches.forEach((button, i) => button.setAttribute('aria-pressed', String(i === color)));
     }
+    function selectBrush(value) {
+      brush = value;
+      dialog.querySelectorAll('[data-brush]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.brush) === brush)));
+    }
+    dialog.querySelectorAll('[data-brush]').forEach(button => { button.onclick = () => selectBrush(Number(button.dataset.brush)); });
     colors.forEach(([name, value], index) => {
       const button = index ? document.createElement('button') : find('.pixel-eraser');
       if (index) {
@@ -205,9 +226,15 @@
     });
     function point(event) {
       const rect = canvas.getBoundingClientRect();
-      const x = Math.floor((event.clientX - rect.left) / rect.width * size);
-      const y = Math.floor((event.clientY - rect.top) / rect.height * size);
-      return x >= 0 && x < size && y >= 0 && y < size ? {x, y} : null;
+      const x = Math.floor((event.clientX - rect.left) / rect.width * width);
+      const y = Math.floor((event.clientY - rect.top) / rect.height * height);
+      return x >= 0 && x < width && y >= 0 && y < height ? {x, y} : null;
+    }
+    function dab(x, y) {
+      const radius = (brush - 1) / 2;
+      for (let py = Math.max(0, y - radius); py <= Math.min(height - 1, y + radius); py++) {
+        for (let px = Math.max(0, x - radius); px <= Math.min(width - 1, x + radius); px++) pixels[py * width + px] = indices[color];
+      }
     }
     function paintTo(to) {
       if (!to) { stroke.last = null; return; }
@@ -215,9 +242,9 @@
       for (let k = 0; k <= span; k++) {
         const x = Math.round(from.x + (to.x - from.x) * k / span);
         const y = Math.round(from.y + (to.y - from.y) * k / span);
-        pixels[y * size + x] = indices[color];
+        dab(x, y);
       }
-      stroke.last = to; cursor = to.y * size + to.x; refresh();
+      stroke.last = to; cursor = to.y * width + to.x; refresh();
     }
     canvas.onpointerdown = event => {
       if (event.button !== 0 || stroke || applying) return;
@@ -234,14 +261,14 @@
     canvas.onpointerup = canvas.onpointercancel = canvas.onlostpointercapture = finishStroke;
     canvas.onkeydown = event => {
       if (applying) return;
-      const x = cursor % size, y = Math.floor(cursor / size);
+      const x = cursor % width, y = Math.floor(cursor / width);
       switch (event.key) {
-        case 'ArrowLeft': cursor = y * size + Math.max(x - 1, 0); break;
-        case 'ArrowRight': cursor = y * size + Math.min(x + 1, size - 1); break;
-        case 'ArrowUp': cursor = Math.max(0, y - 1) * size + x; break;
-        case 'ArrowDown': cursor = Math.min(size - 1, y + 1) * size + x; break;
+        case 'ArrowLeft': cursor = y * width + Math.max(x - 1, 0); break;
+        case 'ArrowRight': cursor = y * width + Math.min(x + 1, width - 1); break;
+        case 'ArrowUp': cursor = Math.max(0, y - 1) * width + x; break;
+        case 'ArrowDown': cursor = Math.min(height - 1, y + 1) * width + x; break;
         case ' ': case 'Enter': {
-          const previous = pixels.join(''); pixels[cursor] = indices[color]; remember(previous); break;
+          const previous = pixels.join(''); dab(x, y); remember(previous); break;
         }
         default: return;
       }
@@ -251,7 +278,7 @@
     find('.pixel-clear').onclick = () => { const previous = pixels.join(''); pixels.fill('0'); remember(previous); refresh(); };
     find('.pixel-cancel').onclick = () => {
       if (applying) return;
-      if (ai) { outcome = 'retry'; const value = artwork(); dialog.close(); onRetry?.(value); }
+      if (ai && onRetry) { outcome = 'retry'; const value = artwork(); dialog.close(); onRetry(value); }
       else dialog.close();
     };
     applyButton.onclick = async () => {
@@ -265,7 +292,7 @@
       }
       applying = true;
       dialog.querySelectorAll('button').forEach(button => { button.disabled = true; });
-      try { await onApply(ai ? artwork() : value); outcome = 'apply'; dialog.close(); }
+      try { await onApply(bitmapOutput ? artwork() : value); outcome = 'apply'; dialog.close(); }
       catch (error) { find('.pixel-message').textContent = error.message; }
       finally {
         applying = false;
@@ -281,7 +308,7 @@
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
     });
     dialog.addEventListener('close', () => { dialog.remove(); if (outcome === 'cancel') onCancel?.(); }, {once:true});
-    document.body.append(dialog); selectColor(1); refresh(); dialog.showModal();
+    document.body.append(dialog); selectColor(1); selectBrush(3); refresh(); dialog.showModal();
     return dialog;
   }
   window.grade1Pixel = {read, remove, apply, open};

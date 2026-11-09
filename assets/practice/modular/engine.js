@@ -92,22 +92,26 @@
     }
     return o.boxes.map(a=>[b.x+(1+a[0])*scale,b.y+(1+a[1])*scale,a[2]*scale,a[3]*scale]);
   }
-  const pixelSymbols='0123456789ab',pixelColors=['#172c48','#28a853','#ed5147','#ffca35','#3985e6','#885bcc','#fa8ebe','#935e3d','#ffffff'];
+  const pixelSymbols='0123456789abcdefghijklmnopqrstuvwxyz',pixelColors=['#172c48','#28a853','#ed5147','#ffca35','#3985e6','#885bcc','#fa8ebe','#935e3d','#ffffff'];
   function makePixelArt(name,value){
     if(slots[name].mode!=='pixel')return null;
     if(typeof value==='string'&&/^[0-9]{256}$/.test(value))value={palette:pixelColors,pixels:Array.from({length:16},(_,y)=>[...value.slice(y*16,y*16+16)].map(c=>c==='0'?'.':pixelSymbols[Number(c)-1]).join(''))};
-    if(!value||!Array.isArray(value.palette)||value.palette.length<1||value.palette.length>12||value.palette.some(c=>!/^#[0-9a-f]{6}$/i.test(c))||!Array.isArray(value.pixels)||value.pixels.length!==16||value.pixels.some(row=>typeof row!=='string'||row.length!==16))return null;
+    if(!value||!Array.isArray(value.palette)||value.palette.length<1||value.palette.length>21||value.palette.some(c=>!/^#[0-9a-f]{6}$/i.test(c))||!Array.isArray(value.pixels))return null;
+    const width=value.pixels[0]?.length,height=value.pixels.length;
+    if(![[16,16],[44,47],[24,24]].some(([w,h])=>w===width&&h===height)||value.pixels.some(row=>typeof row!=='string'||row.length!==width))return null;
     const flat=value.pixels.join('');if([...flat].some(c=>c!=='.'&&(pixelSymbols.indexOf(c)<0||pixelSymbols.indexOf(c)>=value.palette.length)))return null;
-    let l=16,t=16,r=-1,b=-1;const sheet=document.createElement('canvas');sheet.width=sheet.height=16;const ctx=sheet.getContext('2d');
-    for(let i=0;i<256;i++)if(flat[i]!=='.'){l=Math.min(l,i%16);t=Math.min(t,Math.floor(i/16));r=Math.max(r,i%16);b=Math.max(b,Math.floor(i/16));ctx.fillStyle=value.palette[pixelSymbols.indexOf(flat[i])];ctx.fillRect(i%16,Math.floor(i/16),1,1);}
-    return r<0?null:{flat,sheet,region:{l,t,w:r-l+1,h:b-t+1}};
+    let l=width,t=height,r=-1,b=-1;const sheet=document.createElement('canvas');sheet.width=width;sheet.height=height;const ctx=sheet.getContext('2d');
+    for(let i=0;i<width*height;i++)if(flat[i]!=='.'){l=Math.min(l,i%width);t=Math.min(t,Math.floor(i/width));r=Math.max(r,i%width);b=Math.max(b,Math.floor(i/width));ctx.fillStyle=value.palette[pixelSymbols.indexOf(flat[i])];ctx.fillRect(i%width,Math.floor(i/width),1,1);}
+    const runs=[];
+    for(let y=0;y<height;y++)for(let x=0;x<width;){if(flat[y*width+x]==='.'){x++;continue;}const start=x;while(x<width&&flat[y*width+x]!=='.')x++;runs.push([start-l,y-t,x-start]);}
+    return r<0?null:{flat,sheet,width,height,runs,region:{l,t,w:r-l+1,h:b-t+1}};
   }
   const heroArt=makePixelArt('hero',project.assets.pixel),obstacleArt=makePixelArt('obstacle',project.assets.obstacle),itemArt=makePixelArt('item',project.assets.item);
   function pixelGeometry(){const w=player.low?59:44,r=heroArt.region,fit=Math.min(44/r.w,47/r.h),sx=fit*(player.low?59/44:1),sy=fit*(player.low?25/47:1),scale=heroScale(),anchorX=player.x+w/2,anchorY=player.y+47;const x=Math.round(player.x)+(w-r.w*sx)/2,y=Math.round(player.y)+(player.low?43:47)-r.h*sy;return {x:anchorX+(x-anchorX)*scale,y:anchorY+(y-anchorY)*scale,sx:sx*scale,sy:sy*scale};}
   function obstaclePixelGeometry(o,index){const b=obstacleBounds(o),r=obstacleArt.region,w=o.type.w*obstacleScale(),h=b.h,s=Math.min(w/r.w,h/r.h);return {x:b.x+index*w+(w-r.w*s)/2,y:b.y+h-r.h*s,sx:s,sy:s};}
-  function artBoxes(art,g){const r=art.region,boxes=[];for(let y=0;y<r.h;y++)for(let x=0;x<r.w;x++)if(art.flat[(y+r.t)*16+x+r.l]!=='.')boxes.push([g.x+x*g.sx,g.y+y*g.sy,g.sx,g.sy]);return boxes;}
+  function artBoxes(art,g){if(art.width!==16)return art.runs.map(([x,y,w])=>[g.x+x*g.sx,g.y+y*g.sy,w*g.sx,g.sy]);const r=art.region,boxes=[];for(let y=0;y<r.h;y++)for(let x=0;x<r.w;x++)if(art.flat[(y+r.t)*art.width+x+r.l]!=='.')boxes.push([g.x+x*g.sx,g.y+y*g.sy,g.sx,g.sy]);return boxes;}
   function drawPixelArt(art,g){const r=art.region;pen.save();try{pen.imageSmoothingEnabled=false;pen.drawImage(art.sheet,r.l,r.t,r.w,r.h,g.x,g.y,r.w*g.sx,r.h*g.sy);}finally{pen.restore();}}
-  function drawItemArt(x,y,size=16){pen.save();try{pen.imageSmoothingEnabled=false;pen.drawImage(itemArt.sheet,0,0,16,16,x,y,size,size);}finally{pen.restore();}}
+  function drawItemArt(x,y,size=16){pen.save();try{pen.imageSmoothingEnabled=false;pen.drawImage(itemArt.sheet,0,0,itemArt.width,itemArt.height,x,y,size,size);}finally{pen.restore();}}
   function heroBoxes(){
     if(heroArt)return artBoxes(heroArt,pixelGeometry());
     if(customEnabled('drawHero')){const b=heroBounds();return [[b.x,b.y,b.w,b.h]];}

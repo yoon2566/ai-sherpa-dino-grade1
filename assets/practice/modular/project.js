@@ -18,7 +18,7 @@
 
   function createProject() {
     return {
-      formatVersion: 2, engineVersion: ENGINE_VERSION, authoringVersion: 3,
+      formatVersion: 2, engineVersion: ENGINE_VERSION, authoringVersion: 4,
       config: {speedMultiplier: 1, initialLives: 1, itemsEnabled: false, itemName: '별', abilityId: '', soundPreset: 'default', muted: false},
       slots: {hero: {mode: 'default'}, background: {mode: 'default'}, obstacle: {mode: 'default', style: {sizeScale: 1, shape: 'rect'}}, item: {mode: 'default'}},
       assets: {pixel: null, obstacle: null, item: null}
@@ -28,7 +28,7 @@
   function normalizeProject(value) {
     if (!isObject(value) || value.formatVersion !== 2 || value.engineVersion !== ENGINE_VERSION) invalid();
     const result = createProject(), config = value.config, slots = value.slots, assets = value.assets;
-    if (value.authoringVersion !== undefined && ![2, 3].includes(value.authoringVersion)) invalid();
+    if (value.authoringVersion !== undefined && ![2, 3, 4].includes(value.authoringVersion)) invalid();
     result.authoringVersion = value.authoringVersion ?? 2;
     if (!isObject(config) || !isObject(slots) || !isObject(assets)) invalid();
     if (!Number.isFinite(config.speedMultiplier) || config.speedMultiplier < 0.5 || config.speedMultiplier > 2.5) invalid();
@@ -40,7 +40,9 @@
     for (const name of ['hero', 'background', 'obstacle', 'item']) {
       const slot = slots[name];
       if (!isObject(slot) || !(['default', 'code', ...(name !== 'background' ? ['pixel'] : [])].includes(slot.mode))) invalid();
-      if (slot.mode === 'code') {
+      // Pixel artwork may retain its checked source for a later AI drawing edit.
+      // The fixed engine executes source only when the mode is actually 'code'.
+      if (slot.mode === 'code' || slot.mode === 'pixel' && slot.code !== undefined) {
         if (!global.SherpaSlotSafety?.validateStatic(name, slot.code).ok) invalid();
         result.slots[name].code = slot.code;
       } else if (slot.code) invalid();
@@ -115,7 +117,7 @@
     return normalizeProject(next);
   }
 
-  function withPixel(project, name, artwork) {
+  function withPixel(project, name, artwork, options = {}) {
     const next = copy(project);
     // Preserve the original direct-drawing API for old and phase-2 works.
     if (arguments.length === 2) {
@@ -127,7 +129,15 @@
     if (!['hero', 'obstacle', 'item'].includes(name)) invalid();
     const data = artwork === null ? null : global.SherpaPixel.normalize(artwork);
     next.slots[name] = {mode: data ? 'pixel' : 'default'};
-    if (name === 'obstacle') next.slots.obstacle.style = copy(project.slots.obstacle.style);
+    if (data) {
+      if (Object.hasOwn(options,'code')) {
+        if (options.code !== null) {
+          if (!global.SherpaSlotSafety?.isApproved(name, options.code)) invalid();
+          next.slots[name].code = options.code;
+        }
+      } else if (project.slots[name].code) next.slots[name].code = project.slots[name].code;
+    }
+    if (name === 'obstacle') next.slots.obstacle.style = copy(options.style || project.slots.obstacle.style);
     next.assets[name === 'hero' ? 'pixel' : name] = data;
     return normalizeProject(next);
   }

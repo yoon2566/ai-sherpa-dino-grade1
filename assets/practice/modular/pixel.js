@@ -1,18 +1,20 @@
-/* Repair AI drafts before validation; keep edited 12-colour artwork strict. */
+/* Legacy AI draft repairs and dimension-aware, strictly checked editor artwork. */
 (function (global) {
   'use strict';
-  const symbols = '0123456789ab';
+  const symbols = '0123456789abcdefghijklmnopqrstuvwxyz';
   const legacyPalette = Object.freeze(['#172c48', '#28a853', '#ed5147', '#ffca35', '#3985e6', '#885bcc', '#fa8ebe', '#935e3d', '#ffffff']);
   const fail = () => { throw Error('그림을 읽지 못했어요. 다시 해봐요.'); };
 
-  function normalize(value, maxColors = 12) {
+  function normalize(value, maxColors = 21) {
     if (!value || typeof value !== 'object' || Array.isArray(value)
       || !Array.isArray(value.palette) || value.palette.length < 1 || value.palette.length > maxColors
       || value.palette.some(color => typeof color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(color))
-      || !Array.isArray(value.pixels) || value.pixels.length !== 16) fail();
+      || !Array.isArray(value.pixels)) fail();
+    const height = value.pixels.length, width = value.pixels[0]?.length;
+    if (![[16,16],[44,47],[24,24]].some(([w,h]) => width === w && height === h)) fail();
     let painted = 0;
     for (const row of value.pixels) {
-      if (typeof row !== 'string' || row.length !== 16) fail();
+      if (typeof row !== 'string' || row.length !== width) fail();
       for (const char of row) {
         if (char === '.') continue;
         const index = symbols.indexOf(char);
@@ -32,15 +34,15 @@
   }
 
   function components(pixel) {
-    const flat = pixel.pixels.join(''), seen = new Set();
+    const flat = pixel.pixels.join(''), seen = new Set(), width = pixel.pixels[0].length, height = pixel.pixels.length;
     const groups = [];
-    for (let index = 0; index < 256; index++) {
+    for (let index = 0; index < width * height; index++) {
       if (flat[index] === '.') continue;
       if (seen.has(index)) continue;
       const queue = [index]; seen.add(index);
       for (let at = 0; at < queue.length; at++) {
-        const current = queue[at], x = current % 16, y = Math.floor(current / 16);
-        for (const next of [x > 0 ? current - 1 : -1, x < 15 ? current + 1 : -1, y > 0 ? current - 16 : -1, y < 15 ? current + 16 : -1]) {
+        const current = queue[at], x = current % width, y = Math.floor(current / width);
+        for (const next of [x > 0 ? current - 1 : -1, x < width - 1 ? current + 1 : -1, y > 0 ? current - width : -1, y < height - 1 ? current + width : -1]) {
           if (next < 0 || flat[next] === '.' || seen.has(next)) continue;
           seen.add(next); queue.push(next);
         }
@@ -57,6 +59,7 @@
   }
 
   function repair(slot, value) {
+    const symbols = '0123456789ab';
     const changes = {};
     const add = (name, count = 1) => { if (count) changes[name] = (changes[name] || 0) + count; };
     const validColor = color => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color);
@@ -161,5 +164,5 @@
     } catch { return {ok: false, error: '그림은 16줄, 한 줄 16칸과 최대 8색으로 보내 주세요.'}; }
   }
 
-  global.SherpaPixel = Object.freeze({symbols, legacyPalette, normalize, toPixel, measure, validatePixel});
+  global.SherpaPixel = Object.freeze({symbols, legacyPalette, normalize, toPixel, components, measure, validatePixel});
 })(window);

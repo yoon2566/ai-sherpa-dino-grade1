@@ -42,7 +42,7 @@ const server = http.createServer((request, response) => {
       check('settings and pixels leave prior project immutable', JSON.stringify(initial) === initialJson && configured.assets.pixel === null);
       check('pixel mode uses exact editor data', painted.slots.hero.mode === 'pixel' && painted.assets.pixel === pixels);
       check('pixel reset preserves other settings', reset.slots.hero.mode === 'default' && reset.assets.pixel === null && reset.config.initialLives === 9 && reset.config.abilityId === 'magnet');
-      check('new works use phase-3 authoring', initial.authoringVersion === 3);
+      check('new works use phase-4 authoring', initial.authoringVersion === 4);
       const phase2 = JSON.parse(initialJson); delete phase2.authoringVersion; delete phase2.assets.obstacle; delete phase2.assets.item;
       check('old phase-2 metadata retains authoring path', api.normalizeProject(phase2).authoringVersion === 2);
       const oldPainted = {...phase2, slots: {...phase2.slots, hero: {mode:'pixel'}}, assets:{pixel:pixels}};

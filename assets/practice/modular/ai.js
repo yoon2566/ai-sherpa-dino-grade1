@@ -88,7 +88,8 @@
   }
   function slotPayload(project, intent) {
     return {mode:'slot', slot:intent.slot, request:intent.request,
-      current:project.slots[intent.slot].code || '', contract:{function:names[intent.slot],parameters:['ctx','v']}};
+      ...(!intent.freshHero ? {current:intent.currentCode ?? project.slots[intent.slot].code ?? ''} : {}),
+      ...(intent.redraw ? {redraw:true} : {}), contract:{function:names[intent.slot],parameters:['ctx','v']}};
   }
   function routePayload(project, intent) {
     const current = {};
@@ -118,7 +119,7 @@
         }
         if (candidate.config) return global.SherpaProject.withConfig(project,candidate.config);
         // A route is called once. A rejected drawing retries only that slot.
-        payload = slotPayload(project,{slot:candidate.slot,request:intent.request});
+        payload = slotPayload(project,{...intent,slot:candidate.slot});
         const checked = await global.SherpaSlotSafety.validate(candidate.slot,candidate.code);
         aborted(signal);
         if (!checked.ok) { const error = Error('Drawing rejected'); error.validation = checked.error; throw error; }
@@ -128,7 +129,7 @@
       } catch (error) {
         aborted(signal);
         if (error.code === 'UNSUPPORTED_CHANGE' || attempt === 1 || payload.mode === 'route') throw error;
-        payload = {...payload,request:payload.request+'\n앞선 그림은 검사에 통과하지 못했어요. 계약과 허용 API를 지켜 눈에 보이는 그림을 새롭게 그려 줘. 빈 배열·push 등 배열 메서드와 배열 변경은 금지야. 반복은 for(let i=0;i<10;i++)처럼 숫자 리터럴 상한과 i++만 사용해. 꼭짓점은 반복 안에서 좌표를 계산해 바로 moveTo/lineTo로 그려 줘.'};
+        payload = {...payload,retry:true};
         onProgress?.(0,0);
       }
     }
@@ -158,26 +159,49 @@
       }
     }
   }
-  // A proposal is never committed here. The chat owns the explicit editor
-  // confirmation, persistence and preview swap as one successful operation.
+  // The phase-four quality gate decides this constant before deployment.
+  // Code and converted pixels stay a proposal until the editor confirms.
+  const reviewCodeDrafts = true;
+  async function prepareCode(project,intent,signal,onProgress) {
+    if (!reviewCodeDrafts) return {project:await apply(project,intent,signal,onProgress)};
+    let payload=slotPayload(project,intent);
+    for(let attempt=0;attempt<2;attempt++) {
+      aborted(signal);
+      try {
+        const response=await receive(payload,signal,onProgress);
+        const candidate=parseSlot(intent.slot,response.raw);
+        const checked=await global.SherpaCodeBitmap.render(candidate.slot,candidate.code);
+        aborted(signal);
+        if(!checked.ok) {console.info('[공룡3 코드 밑그림 검사]',candidate.slot,checked.error);fail();}
+        return {slot:candidate.slot,draft:checked.pixel,source:candidate.code,style:candidate.obstacleStyle,intent};
+      } catch(error) {
+        aborted(signal);
+        if(attempt===1)fail();
+        payload={...payload,retry:true};onProgress?.(0,0);
+      }
+    }
+  }
   async function prepare(project, intent, signal, onProgress) {
     if (intent.mode !== 'route') {
       if (intent.slot === 'background') return {project:await apply(project,intent,signal,onProgress)};
-      return preparePixel(project,intent,signal,onProgress);
+      return prepareCode(project,intent,signal,onProgress);
     }
-    const payload = {mode:'route',artMode:'pixel',request:intent.request,
-      current:project.slots.background.code ? {background:project.slots.background.code} : {},
-      config:{speedMultiplier:project.config.speedMultiplier,initialLives:project.config.initialLives,soundPreset:project.config.soundPreset}};
+    const payload = {...routePayload(project,intent),artMode:'code'};
     const response = await receive(payload,signal,onProgress), candidate = parseRoute(response.raw);
     if (candidate.unsupported) { const error = Error(unsupportedMessage); error.code='UNSUPPORTED_CHANGE'; throw error; }
     if (candidate.config) return {project:global.SherpaProject.withConfig(project,candidate.config)};
     if (candidate.slot === 'background' && candidate.code) return {project:await apply(project,{mode:'slot',slot:'background',request:intent.request,candidate},signal,onProgress)};
     if (!candidate.request || !['hero','obstacle','item'].includes(candidate.slot)) fail();
-    return preparePixel(project,{mode:'pixel',slot:candidate.slot,request:candidate.request,redraw:true,current:currentPixel(project,candidate.slot)},signal,onProgress);
+    const nextIntent={mode:'slot',slot:candidate.slot,request:candidate.request,redraw:true};
+    if(!project.slots[candidate.slot].code && currentPixel(project,candidate.slot)) {
+      return {slot:candidate.slot,draft:currentPixel(project,candidate.slot),direct:true,
+        notice:'직접 그린 그림은 손보기 창에서 고쳐 봐요',intent:nextIntent};
+    }
+    return prepareCode(project,nextIntent,signal,onProgress);
   }
   async function redraw(project, proposal, edited, signal, onProgress) {
-    const intent = {...proposal.intent,redraw:true,current:edited || proposal.draft};
-    return preparePixel(project,intent,signal,onProgress);
+    const intent = {...proposal.intent,redraw:true,currentCode:proposal.source || project.slots[proposal.slot].code || ''};
+    return prepareCode(project,intent,signal,onProgress);
   }
-  global.SherpaSlotAI = Object.freeze({receive,parseSlot,parseRoute,apply,prepare,redraw,currentPixel,unsupportedMessage});
+  global.SherpaSlotAI = Object.freeze({receive,parseSlot,parseRoute,apply,prepare,redraw,currentPixel,unsupportedMessage,reviewCodeDrafts});
 })(window);

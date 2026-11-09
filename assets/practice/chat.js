@@ -56,10 +56,11 @@ async function generate(request,message,controls,onSuccess,abilityOverride,proje
   requireEditableProject();
   const progress=(length,lines)=>{p.textContent=$('busy').textContent=lines?'코드 '+lines.toLocaleString('ko-KR')+'줄 · '+length.toLocaleString('ko-KR')+'자 작성 중…':'코드 0줄 · AI 응답을 기다리고 있어요…'};
   let nextProject=modularProject,confirmed=false;
-  if(modularProject&&slotIntent&&modularProject.authoringVersion===3){
+  if(modularProject&&slotIntent&&modularProject.authoringVersion>=3){
    let proposal=await window.SherpaSlotAI.prepare(modularProject,slotIntent,controller.signal,progress);
    while(proposal.draft){
     clearTimeout(timer);cancel.hidden=true;$('busy').hidden=true;
+    if(proposal.notice)p.textContent=proposal.notice;
     const choice=await reviewPixelDraft(modularProject,proposal,controller.signal);
     if(choice.action==='cancel'){lock(controls,false);$('status').textContent='이전 게임 유지';a.remove();return}
     if(choice.action==='apply'){confirmed=true;break}
@@ -84,11 +85,11 @@ function reviewPixelDraft(project,proposal,signal){
   dialog=window.grade1Pixel.open({draft:proposal.draft,slot:proposal.slot,
    onApply(pixel){
     if(signal.aborted)throw signal.reason;
-    let nextProject=window.SherpaProject.withPixel(project,proposal.slot,pixel);
+    let nextProject=window.SherpaProject.withPixel(project,proposal.slot,pixel,{...(proposal.source?{code:proposal.source}:{}),...(proposal.style?{style:proposal.style}:{})});
     if(proposal.slot==='item')nextProject=window.SherpaProject.withConfig(nextProject,{itemsEnabled:true,...(proposal.intent.itemName?{itemName:proposal.intent.itemName}:{})});
     savePracticePreview(window.SherpaProject.buildGameHtml(nextProject));finish({action:'apply'});
    },
-   onRetry:pixel=>finish({action:'retry',pixel}),onCancel:()=>finish({action:'cancel'})
+   ...(proposal.direct?{description:proposal.notice}:{onRetry:pixel=>finish({action:'retry',pixel})}),onCancel:()=>finish({action:'cancel'})
   });
  });
 }
@@ -107,7 +108,7 @@ function modularSlotIntent(label,redraw=false){
  // Preserve the current choice's request verbatim; engine rules are owned by
  // the fixed engine, and full-HTML editing instructions belong to legacy only.
  const request=preset||[`주인공을 ${label} 모습으로 새로 그려 줘.`,`배경을 ${label} 풍경으로 바꿔 줘.`,`장애물을 ${label} 모양으로 바꿔 줘.`][step];
- return {mode:'slot',slot,redraw,freshHero:slot==='hero'&&!redraw,request:request+(redraw?'\n같은 선택으로 다시 만들어 줘. 그림은 새롭게 그려 줘.':''),...(slot==='item'?{itemName:label}:{})};
+ return {mode:'slot',slot,redraw,freshHero:slot==='hero'&&!redraw,request,...(slot==='item'?{itemName:label}:{})};
 }
 function complete(){if(working)return;window.saveClassroomPractice(html,step,true);$('progress').textContent='완성';const a=say('나만의 게임 완성! 🎉','게시판에 저장해서 친구들과 함께 해봐요.');const actions=node('div',null,'completion-actions');const board=node('a','친구들 게임 보기 ↗','share-board-link');board.href=classroomBoardUrl('/board');board.target='_blank';board.rel='noopener';actions.append(...window.createGameShareButtons(()=>html),btn('더 바꾸고 싶어요',()=>{lock(a);customPicker()}),board);a.append(actions);reveal(a)}
 function customPicker(){
@@ -199,9 +200,10 @@ function openCharacterEditor(controls) {
   try { requireEditableProject(); } catch (error) { reveal(say('', error.message)); return; }
   const editor = window.grade1Pixel;
   editor.open({
-    initial: modularProject?.authoringVersion===3 ? null : modularProject ? modularProject.assets.pixel : editor.read(html),
+    initial: modularProject?.authoringVersion>=3 ? null : modularProject ? modularProject.assets.pixel : editor.read(html),
+    ...(modularProject?.authoringVersion>=3?{width:44,height:47}:{}),
     onApply(sprite) {
-      const changedGame = modularProject ? window.SherpaProject.buildGameHtml(window.SherpaProject.withPixel(modularProject,sprite)) : sprite ? editor.apply(html, sprite) : lesson.game;
+      const changedGame = modularProject ? window.SherpaProject.buildGameHtml(typeof sprite==='string'?window.SherpaProject.withPixel(modularProject,sprite):window.SherpaProject.withPixel(modularProject,'hero',sprite,{code:null})) : sprite ? editor.apply(html, sprite) : lesson.game;
       if (!window.saveClassroomPractice(changedGame, 0, false)) {
         throw Error('그림을 저장하지 못했어요. 브라우저의 저장 공간을 확인해 주세요.');
       }

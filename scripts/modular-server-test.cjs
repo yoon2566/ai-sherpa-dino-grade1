@@ -48,6 +48,32 @@ async function check(name, work) {await work(); results.push({name,ok:true}); co
     assert.equal(p.max_tokens,4000); assert.equal(Object.keys(data.contracts).length,4); assert.equal(data.config.soundPreset,'뿅!');
     assert.match(p.messages[0].content,/캐릭터 없애기는 빈 그림으로 대신하지 않는다/); assert.match(p.messages[0].content,/unsupported/);
   });
+  await check('code sketch prompt covers recognizable connected full-size artwork',async()=>{
+    const r=await run({mode:'slot',slot:'hero',request:'판다'}), p=r.upstream.body, data=JSON.parse(p.messages[1].content);
+    assert.equal(data.current,''); assert.equal(p.response_format,undefined);
+    for(const phrase of ['작은 네모 여러 개','진한 외곽선','70% 이상','오른쪽을 보고 달리는 옆모습','머리·몸통·다리·귀','stand 자세 44×47','25% 이상','20% 이상','4칸 미만','80% 이상','처음부터 그린다']) assert(p.messages[0].content.includes(phrase),phrase);
+  });
+  await check('item contract scales game and 24-square editor render',async()=>{
+    const r=await run({mode:'slot',slot:'item',request:'딸기'}), data=JSON.parse(r.upstream.body.messages[1].content);
+    assert.match(data.contract.values,/게임 16, 밑그림 24/); assert.match(data.contract.coordinates,/0~v.w, 0~v.h/);
+  });
+  await check('slot redraw and retry preserve maximum length user request',async()=>{
+    const r=await run({mode:'slot',slot:'hero',request:'가'.repeat(2000),redraw:true,retry:true}); assert.equal(r.status,200);
+    const data=JSON.parse(r.upstream.body.messages[1].content); assert.equal(data.request,'가'.repeat(2000)); assert.equal(data.current,'');
+    assert.match(data.redrawInstruction,/처음부터/); assert.match(data.retryInstruction,/검사에 통과하지 못/); assert.match(data.retryInstruction,/80% 이상/);
+  });
+  await check('code route classifies art and forwards current source without bitmap',async()=>{
+    const code={hero:'function drawHero(ctx,v){ctx.fillRect(0,0,44,47)}',background:'function drawBackground(ctx,v){ctx.fillRect(0,0,v.w,v.h)}',obstacle:'function drawObstacle(ctx,v){ctx.fillRect(0,0,v.w,v.h)}',item:'function drawItem(ctx,v){ctx.fillRect(0,0,v.w,v.h)}'};
+    const r=await run({mode:'route',artMode:'code',request:'캐릭터 색 파랗게',current:code,config:{initialLives:5}}); assert.equal(r.status,200);
+    const p=r.upstream.body,data=JSON.parse(p.messages[1].content); assert.deepEqual(data.current,code); assert.equal(p.max_tokens,4000); assert.equal(r.text,sse);
+    assert.match(p.messages[0].content,/"slot":"hero\|obstacle\|item","request"/); assert.match(p.messages[0].content,/현재 칸 코드가 있으면 받아 고친다/);
+    assert.match(p.messages[0].content,/현재 코드가 없어도 대상 칸만 정확히 고른다/); assert.match(p.messages[0].content,/"slot":"background","code"/);
+    assert.match(p.messages[0].content,/캐릭터 없애기는 빈 그림으로 대신하지 않는다/); assert.equal(data.config.initialLives,5);
+  });
+  await check('code route accepts missing source for manual editor fallback',async()=>{
+    const r=await run({mode:'route',artMode:'code',request:'캐릭터 색 파랗게',current:{}}); assert.equal(r.status,200);
+    assert.deepEqual(JSON.parse(r.upstream.body.messages[1].content).current,{}); assert.match(r.upstream.body.messages[0].content,/직접 그린 그림의 손보기는 앱이 처리/);
+  });
   for (const slot of ['hero','obstacle','item']) {
     await check('pixel '+slot+' contract, fresh context, SSE and usage',async()=>{
       const r=await run({mode:'pixel',slot,request:'귀여운 새 그림을 그려 줘.'});
@@ -129,7 +155,11 @@ async function check(name, work) {await work(); results.push({name,ok:true}); co
     ['pixel config rejected',{mode:'pixel',slot:'hero',request:'cat',config:{initialLives:5}}],
     ['pixel nonboolean redraw rejected',{mode:'pixel',slot:'hero',request:'cat',redraw:'true'}],
     ['pixel nonboolean retry rejected',{mode:'pixel',slot:'hero',request:'cat',retry:1}],
-    ['unknown route art mode rejected',{mode:'route',artMode:'code',request:'cat'}],
+    ['unknown route art mode rejected',{mode:'route',artMode:'bitmap',request:'cat'}],
+    ['slot nonboolean redraw rejected',{mode:'slot',slot:'hero',request:'cat',redraw:'true'}],
+    ['slot nonboolean retry rejected',{mode:'slot',slot:'hero',request:'cat',retry:1}],
+    ['code route bitmap rejected',{mode:'route',artMode:'code',request:'cat',current:{hero:drawing}}],
+    ['code route long source rejected',{mode:'route',artMode:'code',request:'cat',current:{hero:'x'.repeat(6001)}}],
     ['slot art mode rejected',{mode:'slot',artMode:'pixel',slot:'hero',request:'cat'}],
     ['pixel art mode rejected',{mode:'pixel',artMode:'pixel',slot:'hero',request:'cat'}],
     ['pixel router hero code rejected',{mode:'route',artMode:'pixel',request:'cat',current:{hero:'function drawHero(ctx,v){}'}}],
@@ -144,7 +174,16 @@ async function check(name, work) {await work(); results.push({name,ok:true}); co
   await check('pixel rate limiting retained',async()=>{const r=await run({mode:'pixel',slot:'hero',request:'cat'},{rateLimited:true});assert.equal(r.status,429);assert.equal(r.fetchCalls,0);});
   await check('pixel upstream error sanitized',async()=>{const r=await run({mode:'pixel',slot:'hero',request:'cat'},{upstreamStatus:503});assert.equal(r.status,502);assert.equal(r.text.includes('mock-key'),false);});
   for(const body of [{mode:'slot',slot:'hero',request:'고양이',current:'function drawHero(ctx,v){}'}, {mode:'slot',slot:'background',request:'바닷가'}, {mode:'route',request:'캐릭터 파랗게',current:{hero:'function drawHero(ctx,v){}'},config:{initialLives:3}}, {mode:'route',request:'캐릭터 없애줘'}]) {
-    await check('phase 2 request behavior '+results.length,async()=>{assert.equal(JSON.stringify(await run(body)),JSON.stringify(await run(body,{},previous)));});
+    await check('phase 2 transport and request data retained '+results.length,async()=>{
+      // Fourth-phase art guidance and the item's scale-aware contract change
+      // intentionally. Preserve every other service and user-input field.
+      const normalize=r=>{
+        const p=r.upstream.body,data=JSON.parse(p.messages[1].content);
+        delete data.contract; delete data.contracts; p.messages[0].content='drawing-guidance'; p.messages[1].content=JSON.stringify(data);
+        return r;
+      };
+      assert.equal(JSON.stringify(normalize(await run(body))),JSON.stringify(normalize(await run(body,{},previous))));
+    });
   }
   for (const body of [{prompt:'  게임을 만들어 줘.  '},{prompt:'게임 변경',baseHtml:'<html><body>old</body></html>'},{prompt:''},{prompt:'x'.repeat(16001)},{prompt:'게임',baseHtml:'invalid'},null,{},'{broken']) {
     await check('legacy request behavior '+results.length,async()=>{assert.equal(JSON.stringify(await run(body)),JSON.stringify(await run(body,{},legacy)));});
@@ -153,7 +192,7 @@ async function check(name, work) {await work(); results.push({name,ok:true}); co
     const builder=text=>text.slice(text.indexOf('function gameRequest('),text.indexOf('__name(gameRequest, "gameRequest");'));
     assert.equal(builder(source),builder(baseline));
   });
-  const out = process.env.MODULAR_CAPTURE_DIR || path.resolve(root,'../../85_공룡3_모듈화/3차캡처'); fs.mkdirSync(out,{recursive:true});
-  fs.writeFileSync(path.join(out,'서버검증결과.json'),JSON.stringify({baseline:'c597aaf',legacyBaseline:'7b40669',tests:results.length,results,actualAiCalls:0},null,2));
+  const out = process.env.MODULAR_CAPTURE_DIR || path.resolve(root,'../../85_공룡3_모듈화/4차캡처'); fs.mkdirSync(out,{recursive:true});
+  fs.writeFileSync(path.join(out,'서버검증결과.json'),JSON.stringify({baseline:'d4e0663',phase2Baseline:'c597aaf',legacyBaseline:'7b40669',tests:results.length,results,actualAiCalls:0},null,2));
   console.log(`${results.length} tests passed; no external calls.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});
