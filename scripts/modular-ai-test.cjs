@@ -2,7 +2,7 @@
 // Authoring/SSE contracts with deterministic in-memory responses. No network or DB.
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
 const dir=path.resolve(__dirname,'../assets/practice/modular');
-const out=path.resolve(__dirname,'../../../85_공룡3_모듈화/3차캡처');
+const out = process.env.MODULAR_CAPTURE_DIR || path.resolve(__dirname,'../../../85_공룡3_모듈화/3차캡처');
 const report={scope:'Node VM, actual pixel/project/AI modules with mock SSE and drawing-validation stub; no network',checks:[]};
 const plain=value=>JSON.parse(JSON.stringify(value));
 let calls=[],responder;
@@ -61,6 +61,8 @@ const signal=()=>new AbortController().signal;
       assert.equal(pixel[2].retry,true);assert.equal(proposal.intent.request,request);assert.equal(JSON.stringify(original),before);
     });
   }
+  await check('행 길이·팔레트 오류는 보정하여 1회 응답으로 성공',async()=>{mock(()=>response(JSON.stringify({palette:['bad','#123456'],pixels:Array(15).fill('111111111111111')})));const result=await api.prepare(original,intent,signal());assert.equal(calls.length,1);assert.equal(result.draft.pixels.length,16);assert.equal(result.draft.palette[0],'#123456');assert.equal(JSON.stringify(original),before);});
+  await check('보정 후 38칸이면 정확히 1회 재요청 뒤 쉬운 안내',async()=>{mock(()=>response(JSON.stringify({palette:['#123456'],pixels:['0'.repeat(16),'0'.repeat(16),'000000']})));await assert.rejects(api.prepare(original,intent,signal()),/잘 안 됐어요/);assert.equal(calls.length,2);assert.equal(calls[1].retry,true);assert.equal(JSON.stringify(original),before);});
   await check('두 차례 형식 실패는 쉬운 안내·원본 유지',async()=>{mock(()=>response('bad json'));await assert.rejects(api.prepare(original,intent,signal()),/잘 안 됐어요\. 다시 해봐요\./);assert.equal(calls.length,2);assert.equal(JSON.stringify(original),before);});
   await check('분리된 캐릭터는 재요청 후 연결된 밑그림만 통과',async()=>{const disconnected={palette:['#000000'],pixels:Array.from({length:16},(_,y)=>y<5||y>10?'00000......00000':'.'.repeat(16))};mock((payload,n)=>response(JSON.stringify(n===1?disconnected:art)));const result=await api.prepare(original,intent,signal());assert.equal(calls.length,2);assert(sandbox.SherpaPixel.measure(result.draft).connectedRatio>=.9);});
   await check('선물 제안은 이름을 보존하되 확인 전 게임 설정을 켜지 않음',async()=>{mock();const result=await api.prepare(original,{mode:'slot',slot:'item',request:'사과',itemName:'사과'},signal());assert.equal(result.intent.itemName,'사과');assert.equal(result.project,undefined);assert.equal(original.config.itemsEnabled,false);});

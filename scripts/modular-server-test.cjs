@@ -150,7 +150,7 @@ async function check(name, work) {await work(); results.push({name,ok:true}); co
     const builder=text=>text.slice(text.indexOf('function gameRequest('),text.indexOf('__name(gameRequest, "gameRequest");'));
     assert.equal(builder(source),builder(baseline));
   });
-  const out=path.resolve(root,'../../85_공룡3_모듈화/3차캡처'); fs.mkdirSync(out,{recursive:true});
+  const out = process.env.MODULAR_CAPTURE_DIR || path.resolve(root,'../../85_공룡3_모듈화/3차캡처'); fs.mkdirSync(out,{recursive:true});
   fs.writeFileSync(path.join(out,'서버검증결과.json'),JSON.stringify({baseline:'c597aaf',legacyBaseline:'7b40669',tests:results.length,results,actualAiCalls:0},null,2));
   console.log(`${results.length} tests passed; no external calls.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

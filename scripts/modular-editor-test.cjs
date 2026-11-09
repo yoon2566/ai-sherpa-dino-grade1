@@ -6,7 +6,7 @@ const http = require('node:http');
 const assert = require('node:assert/strict');
 const {chromium} = require(process.env.PLAYWRIGHT_MODULE || path.resolve(__dirname, '../../../70_검수/node_modules/playwright'));
 const assets = path.resolve(__dirname, '../assets/practice');
-const out = path.resolve(__dirname, '../../../85_공룡3_모듈화/3차캡처');
+const out = process.env.MODULAR_CAPTURE_DIR || path.resolve(__dirname, '../../../85_공룡3_모듈화/3차캡처');
 const report = {scope:'localhost editor fixtures, Chromium PC and emulated touch viewports; no external APIs',checks:[],errors:[],captures:[]};
 const draft = {
   palette:['#f28c28','#3b2a1a','#ed5147','#ffffff','#556677','#28a853','#ffca35','#8899aa'],
