@@ -43,6 +43,16 @@ function classroomBoardUrl(path,work){const url=new URL(path,location.origin),ro
   const data=await client.save(title,gameHtml,{target,signal:AbortSignal.timeout(30000)});missingSavedGame=false;
   return {...data,title:data.item?.title||title};
  };
+ window.resaveClassroomGame=async function(gameHtml){
+  if(!client.enabled)throw Error('수업에 입장한 뒤 저장해 주세요.');
+  const target=client.current();
+  if(target&&missingSavedGame)throw Error('이 브라우저에 이전 게임이 남아 있지 않아 업데이트를 멈췄어요. 처음 게시한 화면을 확인하거나 선생님께 알려 주세요.');
+  if(stored().html!==gameHtml)throw Error('다른 화면에서 게임이 바뀌었어요. 새로고침한 뒤 최신 게임을 확인하고 다시 저장해 주세요.');
+  if(!target)return window.autoPublishClassroomGame(gameHtml);
+  // Reuse the owned post and its title; saving again needs no AI request.
+  const data=await client.save(target.title,gameHtml,{target,signal:AbortSignal.timeout(30000)});missingSavedGame=false;
+  return data;
+ };
  const sharingStyle=document.createElement('style');sharingStyle.textContent='.completion-actions [hidden],.game-share-dialog [hidden]{display:none!important}';document.head.append(sharingStyle);
  window.createGameShareButtons=function(getHtml){
   const share=document.createElement('button');share.type='button';share.className='primary';

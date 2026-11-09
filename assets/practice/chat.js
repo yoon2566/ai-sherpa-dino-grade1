@@ -183,9 +183,28 @@ async function complete({restored=false}={}){
  }catch(error){const a=say('',error.message);a.classList.add('error');a.append(btn('완성하기 ✓',()=>complete(),'primary'));}
  finally{working=false;}
 }
+function createFreeResaveButton(controls,status){
+ const save=btn('다시 저장하기',async()=>{
+  if(working||!window.classroomWorkClient.enabled)return;
+  working=true;if(speech)speech.abort();lock(controls);save.textContent='저장 중…';status.textContent='게시판에 저장하고 있어요…';status.classList.remove('error');
+  try{
+   if(!navigator.locks?.request)throw Error('이 브라우저에서는 안전하게 저장할 수 없어요. 최신 Chrome 또는 Edge에서 수업을 열어 주세요.');
+   const key='sherpa-free-edit-'+(new URLSearchParams(location.search).get('room')||'browse');
+   const data=await navigator.locks.request(key,{ifAvailable:true},held=>{
+    if(!held)throw Error('다른 화면에서 고치는 중이에요. 잠시 뒤 다시 저장해 주세요.');
+    return window.resaveClassroomGame(html);
+   });
+   status.textContent=data.updated?'기존 게시물에 다시 저장했어요.':'게시판에 저장했어요.';
+  }catch(error){status.classList.add('error');status.textContent=error.name==='TimeoutError'?'저장 확인이 늦어지고 있어요. 다시 저장하기를 눌러 확인해 주세요.':error.message||'저장하지 못했어요. 다시 눌러 주세요.';}
+  finally{working=false;lock(controls,false);save.textContent='다시 저장하기';save.disabled=!window.classroomWorkClient.enabled;}
+ },'free-resave-button');
+ save.disabled=!window.classroomWorkClient.enabled;save.title=save.disabled?'수업에 입장한 뒤 저장할 수 있어요.':'지금 게임을 기존 게시물에 덮어써요.';
+ return save;
+}
+function freeSaveStatus(){const status=node('p',null,'voice-help free-save-status');status.setAttribute('role','status');return status;}
 function freeForm(){
  $('progress').textContent='자유롭게 고치기';
- if(freeEditsUsed>=FREE_EDIT_LIMIT){say('','오늘은 여기까지! 게임을 즐겨 봐요.');return;}
+ if(freeEditsUsed>=FREE_EDIT_LIMIT){const a=say('','오늘은 여기까지! 게임을 즐겨 봐요.'),status=freeSaveStatus();a.classList.add('free-edit-finished');a.append(createFreeResaveButton(a,status),status);return;}
  customForm('✏️','직접 적기',categories[categories.length-1][2],true);
 }
 function customPicker(){
@@ -218,7 +237,9 @@ function customForm(icon,label,example,isFree=false){
    const buttons=node('div',null,'actions');buttons.append(btn('더 바꾸기',()=>{if(working)return;lock(buttons);customPicker()}),btn('완성하기 ✓',()=>{if(working)return;lock(buttons);complete()},'primary'));result.append(buttons);
   },undefined,undefined,isFree?null:{mode:'route',request:`아이가 바꾸고 싶은 부분: ${label}\n아이의 요청: ${text}`},{forceWhole:isFree||freeMode,freeEdit:isFree,summaryRequest:text});
  },'primary'));
- if(!isFree)actions.append(btn('다른 부분 고르기',()=>{if(working)return;if(speech)speech.abort();lock(a);customPicker()}));a.append(input,help,actions);reveal(a);
+ if(!isFree)actions.append(btn('다른 부분 고르기',()=>{if(working)return;if(speech)speech.abort();lock(a);customPicker()}));
+ const saveStatus=isFree?freeSaveStatus():null;if(isFree)actions.append(createFreeResaveButton(a,saveStatus));
+ a.append(input,help,actions);if(saveStatus)a.append(saveStatus);reveal(a);
 }
 window.addEventListener('pagehide',()=>{if(speech)speech.abort()});
 $('jump').onclick=()=>{$('game').contentWindow.postMessage({channel:'lounge-dino',command:'tap'},'*');$('game').focus()};$('restart').onclick=()=>preview(html);

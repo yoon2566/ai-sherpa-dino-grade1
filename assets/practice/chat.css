@@ -44,6 +44,11 @@ p{line-height:1.65;color:var(--muted);font-size:16px;margin:8px 0 18px}
 .primary:active:not(:disabled){box-shadow:0 1px 0 #168348}
 .actions{display:flex;gap:10px;flex-wrap:wrap;padding-bottom:5px}
 .actions button{font-size:16px}
+.free-edit-message{container-type:inline-size}
+.free-edit-message>.actions{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.2fr) minmax(0,1fr);gap:8px}
+.free-edit-message>.actions>button{min-width:0;padding:12px 5px;font-size:clamp(12px,3.5cqi,16px);white-space:nowrap}
+.free-resave-button{color:#235fa7;border-color:#79aeed;background:#f3f8ff}
+.free-save-status{margin:8px 0 0}.free-save-status:empty{display:none}
 .chat-tip{display:flex;align-items:center;gap:10px;margin:0 16px 16px;padding:11px 14px;background:#fff8df;border-radius:16px;font-size:14px;font-weight:600;flex-shrink:0}
 .bulb-icon{width:23px;height:28px;color:#ffbd05;flex-shrink:0}
 #preview-panel{padding:18px}
