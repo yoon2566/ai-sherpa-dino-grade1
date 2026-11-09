@@ -22,11 +22,11 @@ check('missing colour uses most frequent retained colour',()=>{const r=api.valid
 check('more than eight colours map by RGB distance',()=>{const palette=['#000000','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffffff','#fe0201'];const r=api.validatePixel('obstacle',{palette,pixels:Array(16).fill('88880000........')});assert.equal(r.pixel.palette.length,8);assert.equal(r.pixel.pixels[0],'11110000........');});
 check('ninth valid colour after invalid entries also maps by original RGB',()=>{const palette=['bad','#000000','#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ffffff','#00fe01'];const r=api.validatePixel('obstacle',{palette,pixels:Array(16).fill('99991111........')});assert.equal(r.pixel.pixels[0],'22220000........');});
 for(const palette of [[],['bad'],undefined])check('no usable palette keeps silhouette with default ink '+JSON.stringify(palette),()=>{const r=api.validatePixel('hero',{palette,pixels:solid.pixels});assert(r.ok);assert.deepEqual(plain(r.pixel.palette),['#172c48']);});
-check('tiny detached groups removed before area check',()=>{const r=api.validatePixel('hero',picture([...box(6,6),250,251,252]));assert(!r.ok);assert.equal(r.painted,36);});
-check('main connected body stays with removed three-cell fragment',()=>{const r=api.validatePixel('hero',picture([...box(8,5),250,251,252]));assert(r.ok);assert.equal(r.painted,40);});
+check('tiny detached groups removed before enlargement',()=>{const r=api.validatePixel('hero',picture([...box(6,6),250,251,252]));assert(r.ok);assert.equal(r.painted,144);});
+check('main connected body stays with removed three-cell fragment',()=>{const r=api.validatePixel('hero',picture([...box(8,5),250,251,252]));assert(r.ok);assert.equal(r.painted,160);});
 check('exact 80 percent retains four-cell or larger fragments',()=>{const r=api.validatePixel('hero',picture([...box(8,5),...box(5,2,10,13)]));assert(r.ok);assert.equal(r.painted,50);assert.equal(r.connectedRatio,.8);});
-check('below 80 percent keeps largest body if at least 39 cells',()=>{const r=api.validatePixel('hero',picture([...box(8,5),...box(6,2,10,13)]));assert(r.ok);assert.equal(r.painted,40);assert.equal(r.connectedRatio,1);});
-check('below 80 percent rejects when retained main body is too small',()=>{const r=api.validatePixel('hero',picture([...box(6,6),...box(6,6,10,10)]));assert(!r.ok);assert.equal(r.painted,36);});
+check('below 80 percent keeps largest body if at least 39 cells',()=>{const r=api.validatePixel('hero',picture([...box(8,5),...box(6,2,10,13)]));assert(r.ok);assert.equal(r.painted,160);assert.equal(r.connectedRatio,1);});
+check('below 80 percent enlarges retained small main body',()=>{const r=api.validatePixel('hero',picture([...box(6,6),...box(6,6,10,10)]));assert(r.ok);assert.equal(r.painted,144);});
 check('four-cell fragment retained when ratio passes',()=>{const r=api.validatePixel('hero',picture([...box(8,5),252,253,254,255]));assert(r.ok);assert.equal(r.painted,44);});
 check('diagonal-only single cells removed',()=>{const cells=[];for(let y=0;y<16;y++)for(let x=0;x<16;x++)if((x+y)%2===0)cells.push(y*16+x);const r=api.validatePixel('hero',picture(cells));assert(!r.ok);assert.equal(r.painted,0);});
 check('row edge never wraps',()=>assert.equal(api.measure(picture([15,16])).largestComponent,1));
@@ -39,4 +39,19 @@ check('edited artwork remains strict about dimensions and colours',()=>{for(cons
 check('legacy conversion preserves transparent zero and ninth colour',()=>{const r=api.toPixel('1'+'0'.repeat(254)+'9');assert.equal(r.pixels[0],'0'+'.'.repeat(15));assert.equal(r.pixels[15],'.'.repeat(15)+'8');assert.equal(r.palette[8],'#ffffff');});
 check('canonical repaired output is idempotent',()=>{const once=api.validatePixel('hero',{palette:['bad','#ff0000'],pixels:Array(15).fill('11111111')}).pixel;const twice=api.validatePixel('hero',once).pixel;assert.deepEqual(plain(once),plain(twice));});
 check('correction details use only console.info',()=>{assert(logs.length);assert(logs.some(x=>x[1].paddedRowsAbove));assert(logs.some(x=>x[1].remappedCells));});
+
+for(const slot of ['hero','obstacle','item'])check(slot+' compact 40 cells enlarge and align',()=>{
+ const r=api.validatePixel(slot,picture(box(8,5,3,2)));assert(r.ok);assert.equal(r.painted,160);
+ const top=slot==='item'?3:6;assert.equal(r.pixel.pixels[top],'0'.repeat(16));assert.equal(r.pixel.pixels[top+9],'0'.repeat(16));
+ assert.deepEqual(plain(api.validatePixel(slot,r.pixel).pixel),plain(r.pixel));
+});
+check('threefold cap copies colours and holes without interpolation',()=>{
+ const input={palette:['#123456','#abcdef'],pixels:['01.0','0000',...Array(14).fill(blank)]};
+ const r=api.validatePixel('item',input);assert.equal(r.painted,63);assert.equal(r.pixel.pixels[5],'..000111...000..');assert.equal(r.pixel.pixels[7],r.pixel.pixels[5]);assert.equal(r.pixel.pixels[8],'..000000000000..');
+});
+check('nine-cell long draft stays in its original position',()=>{const p=picture(box(9,5,1,2));assert.deepEqual(plain(api.validatePixel('hero',p).pixel.pixels),p.pixels);});
+check('remaining 36 cells after threefold enlargement still reject',()=>{const r=api.validatePixel('hero',picture(box(2,2)));assert(!r.ok);assert.equal(r.painted,36);});
+check('zero cells still reject without enlargement',()=>{const start=logs.length,r=api.validatePixel('item',picture([]));assert(!r.ok);assert.equal(r.painted,0);assert(!logs.slice(start).some(l=>l[1].enlargement));});
+check('enlargement recorded through console.info',()=>assert(logs.some(l=>l[1].enlargement?.scale===3)));
+
 const out=process.env.MODULAR_CAPTURE_DIR||path.resolve(__dirname,'../../../85_공룡3_모듈화/보정캡처');fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'pixel-contract.json'),JSON.stringify({ok:true,count:checks.length,checks},null,2));console.log('PASS modular pixel contracts: '+checks.length+' checks');

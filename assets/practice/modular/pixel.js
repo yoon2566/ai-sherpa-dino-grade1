@@ -121,6 +121,24 @@
         pixel.pixels = Array.from({length:16},(_,y) => flat.slice(y*16,y*16+16).join(''));
       }
     }
+    // Enlarge only compact AI drafts, after all existing repairs. Copy cells
+    // exactly (nearest neighbour); larger drafts keep their original position.
+    const cells = pixel.pixels.flatMap((row,y) => Array.from(row,(color,x) => ({color,x,y}))).filter(cell => cell.color !== '.');
+    if (cells.length) {
+      const left = Math.min(...cells.map(c => c.x)), top = Math.min(...cells.map(c => c.y));
+      const width = Math.max(...cells.map(c => c.x))-left+1, height = Math.max(...cells.map(c => c.y))-top+1;
+      const scale = Math.min(3,Math.floor(16/Math.max(width,height)));
+      if (scale >= 2) {
+        const x = Math.floor((16-width*scale)/2);
+        const y = slot === 'item' ? Math.floor((16-height*scale)/2) : 16-height*scale;
+        const enlarged = Array.from({length:16},() => Array(16).fill('.'));
+        for (const cell of cells) for (let dy=0;dy<scale;dy++) for (let dx=0;dx<scale;dx++) {
+          enlarged[y+(cell.y-top)*scale+dy][x+(cell.x-left)*scale+dx] = cell.color;
+        }
+        pixel.pixels = enlarged.map(row => row.join(''));
+        changes.enlargement = {width,height,scale,x,y,paintedBefore:cells.length,paintedAfter:cells.length*scale*scale};
+      }
+    }
     if (Object.keys(changes).length) console.info('[SherpaPixel] 밑그림 자동 보정', {slot,...changes});
     return pixel;
   }

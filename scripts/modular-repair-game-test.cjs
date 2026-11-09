@@ -2,8 +2,9 @@
 // Verify the paid run's actual saved game with no network calls.
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {pathToFileURL}=require('node:url'),{chromium}=require(path.resolve(__dirname,'../../../70_검수/node_modules/playwright'));
-const out=path.resolve(__dirname,'../../../85_공룡3_모듈화/보정캡처'),file=path.join(out,'실제AI-최종게임.html'),hash=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex'),originalHash=hash(file);
-const ledger=JSON.parse(fs.readFileSync(path.join(out,'실제AI기록.json'),'utf8')),ctx={window:{},console:{info(){}}};vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../assets/practice/modular/pixel.js'),'utf8'),ctx);const pixel=ctx.window.SherpaPixel;
+const source=path.resolve(__dirname,'../../../85_공룡3_모듈화/보정캡처'),out=process.env.MODULAR_CAPTURE_DIR||source,file=path.join(source,'실제AI-최종게임.html'),hash=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex'),originalHash=hash(file);
+fs.mkdirSync(out,{recursive:true});
+const ledger=JSON.parse(fs.readFileSync(path.join(source,'실제AI기록.json'),'utf8')),ctx={window:{},console:{info(){}}};vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../assets/practice/modular/pixel.js'),'utf8'),ctx);const pixel=ctx.window.SherpaPixel;
 const report={scope:'actual saved paid-run game; offline file only; no AI/DB',checks:[],errors:[],blocked:[]},check=(name,fn)=>{fn();report.checks.push({name,pass:true});};
 (async()=>{const browser=await chromium.launch({headless:true});try{
  const context=await browser.newContext({viewport:{width:1280,height:900}});await context.route('**/*',route=>{if(['file:','data:','blob:'].includes(new URL(route.request().url()).protocol))return route.continue();report.blocked.push(route.request().url());return route.abort();});
