@@ -16,3 +16,19 @@
 .sheet.play.expanded-game h1{font-size:24px;margin:0 0 12px}.sheet.play.expanded-game .game-actions{margin-top:12px}.sheet.play.expanded-game .game-actions button{font-size:20px;padding:10px 16px}.sheet.play.expanded-game iframe{min-height:180px}
 body.practice-expanded .practice-sheet{position:fixed;inset:0;width:100%;height:100dvh;max-width:none;z-index:100;background:#fff}
 @media(pointer:coarse){.game-actions #duck{display:none}}html.grade1-touch .game-actions #duck{display:none}
+
+/* Teacher entry QR. The two header buttons share the existing code-chip styles. */
+.room-actions{display:flex;justify-self:end;align-items:center;gap:10px}
+#room-qr-dialog{position:fixed;inset:0;width:100%;height:100%;height:100dvh;max-width:none;max-height:none;margin:0;border:0;padding:16px;background:rgba(15,23,42,.85);color:#0f172a;overflow:auto}
+#room-qr-dialog[open]{display:grid;place-items:center}
+#room-qr-dialog::backdrop{background:transparent}
+.room-qr-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:100%;padding:40px;border-radius:24px;background:#fff;text-align:center}
+#room-qr-title{max-width:100%;margin:0;padding:0 24px;font-size:28px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}
+#room-qr-image{width:min(62vh,62vw,640px);max-width:100%;aspect-ratio:1;flex:none;background:#fff}
+#room-qr-image svg{display:block;width:100%;height:100%}
+#room-qr-code{margin:0;font-size:56px;font-weight:800;line-height:1.2;letter-spacing:4px;white-space:nowrap}
+#room-qr-hint{margin:0;color:#475569;font-size:20px;line-height:1.4;overflow-wrap:anywhere}
+#room-qr-status{margin:0;color:#475569;font-size:16px}
+#close-room-qr{position:absolute;top:12px;right:12px;display:grid;place-items:center;width:48px;height:48px;min-height:48px;padding:0;border:0;border-radius:50%;background:#f1f5f9;color:#0f172a;font-size:24px;line-height:1}
+@media(max-width:650px){.is-teacher .classroom-header{height:auto;grid-template-columns:auto minmax(0,1fr)}.is-teacher .classroom-header strong{grid-column:1/-1;grid-row:2;max-width:100%;min-width:0}.is-teacher .room-actions{grid-column:2;grid-row:1}.is-teacher .classroom-header{font-size:13px}.is-teacher .classroom-header a,.is-teacher .classroom-header button{padding:8px 11px;font-size:12px;min-height:36px}}
+@media(max-width:480px){#room-qr-code{font-size:32px}#room-qr-title{padding:20px 0 0}#room-qr-hint{max-width:100%}}

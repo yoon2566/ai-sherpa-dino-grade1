@@ -4,6 +4,59 @@ const pages=[...document.querySelectorAll('[data-page]')];
 let page=1,openPages=code?[]:pages.map((_,index)=>index+1),teacher=false,unavailable=false,polling=false,practiceFrame=null,boardFrame=null,demoActive=false;
 async function request(url,options={}){const r=await fetch(url,{...options,cache:'no-store',signal:AbortSignal.timeout(7000)});const data=await r.json();if(!r.ok)throw Object.assign(Error(data.error||'연결을 확인해 주세요.'),{status:r.status});return data}
 const allowed=n=>!unavailable&&(teacher||openPages.includes(n));
+
+// Load the bundled MIT QR encoder only when a teacher opens the dialog.
+const qrDialog=$('room-qr-dialog');
+let qrLibraryPromise;
+function loadQrLibrary(){
+ if(typeof window.qrcode==='function')return Promise.resolve(window.qrcode);
+ if(!qrLibraryPromise)qrLibraryPromise=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  const timeout=setTimeout(fail,10000);
+  function fail(){clearTimeout(timeout);script.remove();qrLibraryPromise=null;reject(Error('QR을 불러오지 못했어요. 닫고 다시 눌러 주세요.'))}
+  script.src='/vendor/qrcode-generator-2.0.4.js';script.async=true;
+  script.onload=()=>{if(typeof window.qrcode!=='function'){fail();return}clearTimeout(timeout);resolve(window.qrcode)};
+  script.onerror=fail;document.head.append(script);
+ });
+ return qrLibraryPromise;
+}
+function fitRoomQr(){
+ // Keep the requested QR size unless the card would exceed a short viewport.
+ const card=qrDialog.querySelector('.room-qr-card'),qrImage=$('room-qr-image');
+ qrImage.style.width='';
+ const overflow=card.getBoundingClientRect().height-(qrDialog.clientHeight-32);
+ if(overflow>0)qrImage.style.width=Math.max(64,qrImage.getBoundingClientRect().width-overflow)+'px';
+}
+function closeRoomQr(){qrDialog.close();$('show-room-qr').focus()}
+$('show-room-qr').onclick=async()=>{
+ if(!teacher||!code||unavailable||qrDialog.open)return;
+ window.releaseLessonDuck?.();
+ $('room-qr-title').textContent=$('room-name').textContent;
+ $('room-qr-code').textContent='코드 '+code;
+ $('room-qr-image').replaceChildren();
+ $('room-qr-status').textContent='QR을 준비하고 있어요.';$('room-qr-status').hidden=false;
+ qrDialog.showModal();fitRoomQr();
+ try{
+  const makeQr=await loadQrLibrary();
+  const studentUrl=new URL('/lesson',location.origin);studentUrl.searchParams.set('room',code);
+  const qr=makeQr(0,'M');qr.addData(studentUrl.href);qr.make();
+  // cellSize 1 + margin 4 gives an exact four-module white quiet zone.
+  $('room-qr-image').innerHTML=qr.createSvgTag({cellSize:1,margin:4,scalable:true});
+  $('room-qr-status').hidden=true;
+ }catch(error){$('room-qr-status').textContent=error.message}
+ if(qrDialog.open)fitRoomQr();
+};
+$('close-room-qr').onclick=closeRoomQr;
+qrDialog.addEventListener('click',event=>{if(event.target===qrDialog)closeRoomQr()});
+qrDialog.addEventListener('cancel',event=>{event.preventDefault();closeRoomQr()});
+window.addEventListener('resize',()=>{if(qrDialog.open)fitRoomQr()});
+// Capture before lesson/game shortcuts; the native dialog keeps background controls inert.
+for(const type of ['keydown','keyup'])window.addEventListener(type,event=>{
+ if(!qrDialog.open)return;
+ event.stopImmediatePropagation();
+ if(type==='keydown'&&event.key==='Escape'){event.preventDefault();closeRoomQr()}
+},true);
+
 function neighboring(direction){for(let n=page+direction;n>=1&&n<=pages.length;n+=direction)if(allowed(n))return n;return null}
 function sendPractice(active){if(practiceFrame){practiceFrame.hidden=!active;practiceFrame.inert=!active;practiceFrame.contentWindow.postMessage({channel:'grade1-classroom',active},location.origin)}}
 function showBoard(active){
@@ -20,6 +73,8 @@ function render(){
  const visible=allowed(page);pages.forEach((el,i)=>el.hidden=!(visible&&i+1===page));$('waiting').hidden=visible;
  $('page-counter').textContent=visible?page+' / '+pages.length:'대기 중';$('previous').disabled=neighboring(-1)===null;$('next').disabled=neighboring(1)===null;
  document.body.classList.toggle('practice-active',visible&&page===5);$('teacher-tools').hidden=!teacher;
+ $('show-room-qr').hidden=!teacher||unavailable;
+ if(qrDialog.open&&(!teacher||unavailable))closeRoomQr();
  $('page-lock').textContent=openPages.includes(page)?'현재 페이지 잠그기':'현재 페이지 열기';$('page-lock').setAttribute('aria-pressed',String(openPages.includes(page)));
  if(visible&&page===4){if(!demoActive){$('demo-game').src='/original-game.html';demoActive=true}}else if(demoActive){$('demo-game').src='about:blank';demoActive=false}
  if(visible&&page===5&&!practiceFrame){practiceFrame=document.createElement('iframe');practiceFrame.id='practice';practiceFrame.title='AI와 게임 수정하기';practiceFrame.allow='microphone';practiceFrame.src='/practice/index.html?course=1'+(code?'&room='+encodeURIComponent(code):'');practiceFrame.onload=()=>sendPractice(allowed(page)&&page===5);pages[4].append(practiceFrame)}
