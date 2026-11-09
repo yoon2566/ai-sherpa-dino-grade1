@@ -121,6 +121,15 @@
         pixel.pixels = Array.from({length:16},(_,y) => flat.slice(y*16,y*16+16).join(''));
       }
     }
+    if (slot === 'item' || slot === 'obstacle') {
+      const flat = pixel.pixels.join('').split('');
+      // Keep the largest component even when every component is tiny.
+      for (const group of components(pixel).slice(1)) if (group.length < 4) {
+        for (const index of group) flat[index] = '.';
+        add('removedSmallCells',group.length);
+      }
+      pixel.pixels = Array.from({length:16},(_,y) => flat.slice(y*16,y*16+16).join(''));
+    }
     // Enlarge only compact AI drafts, after all existing repairs. Copy cells
     // exactly (nearest neighbour); larger drafts keep their original position.
     const cells = pixel.pixels.flatMap((row,y) => Array.from(row,(color,x) => ({color,x,y}))).filter(cell => cell.color !== '.');

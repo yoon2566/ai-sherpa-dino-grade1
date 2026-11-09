@@ -54,4 +54,21 @@ check('remaining 36 cells after threefold enlargement still reject',()=>{const r
 check('zero cells still reject without enlargement',()=>{const start=logs.length,r=api.validatePixel('item',picture([]));assert(!r.ok);assert.equal(r.painted,0);assert(!logs.slice(start).some(l=>l[1].enlargement));});
 check('enlargement recorded through console.info',()=>assert(logs.some(l=>l[1].enlargement?.scale===3)));
 
+for (const slot of ['item','obstacle']) {
+ check(slot+' removes 1-3 cell fragments before bounding box and logs count',()=>{
+  const input=picture([...box(6,6,1,1),15,47,63,239,254,255]),original=JSON.stringify(input),start=logs.length;
+  const r=api.validatePixel(slot,input);assert(r.ok);assert.equal(r.painted,144);
+  assert.equal(JSON.stringify(input),original);
+  assert(logs.slice(start).some(l=>l[1].removedSmallCells===6&&l[1].enlargement.scale===2));
+ });
+ check(slot+' keeps largest tiny group and removes diagonal-only neighbour',()=>{
+  const r=api.validatePixel(slot,picture([0,1,2,19]));assert.equal(r.painted,27);assert(!r.ok);
+ });
+ check(slot+' retains first largest when tiny groups tie',()=>{
+  const r=api.validatePixel(slot,picture([0,255]));assert.equal(r.painted,9);assert(!r.ok);
+ });
+ check(slot+' keeps four-cell fragment and does not apply hero connectivity rule',()=>{
+  const r=api.validatePixel(slot,picture([...box(6,6),...box(4,4,12,12)]));assert.equal(r.painted,52);assert(r.ok);
+ });
+}
 const out=process.env.MODULAR_CAPTURE_DIR||path.resolve(__dirname,'../../../85_공룡3_모듈화/보정캡처');fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'pixel-contract.json'),JSON.stringify({ok:true,count:checks.length,checks},null,2));console.log('PASS modular pixel contracts: '+checks.length+' checks');
