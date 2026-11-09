@@ -79,8 +79,13 @@ async function guardedContext(browser,options={}) {
 }
 async function mockAI(context) {
   const mock={calls:[],respond:null,revision:0};
+  let boardItem=null;
+  await context.route('**/api/board**',async route=>{const request=route.request(),url=new URL(request.url()),body=request.postDataJSON();if(url.pathname==='/api/board/session')return route.fulfill({contentType:'application/json',body:JSON.stringify({registered:!!boardItem,...(boardItem?{item:boardItem}:{})})});boardItem={id:'b'.repeat(32),revision:(boardItem?.revision||0)+1,title:body.title,html:body.html};return route.fulfill({contentType:'application/json',body:JSON.stringify({item:boardItem})});});
   await context.route('**/api/game',async route=>{
-    const payload=route.request().postDataJSON();mock.calls.push(payload);
+    const payload=route.request().postDataJSON();
+    // Phase six adds an independent title request after completion.
+    if(payload.mode==='title')return route.fulfill({status:200,contentType:'text/event-stream',body:sse('신나는 고양이 게임')});
+    mock.calls.push(payload);
     report.mockRequests.push({mode:payload.mode,slot:payload.slot,request:payload.request,bytes:Buffer.byteLength(JSON.stringify(payload))});
     let raw;
     if(mock.respond)raw=mock.respond(payload,mock.calls.length);
@@ -167,7 +172,9 @@ async function runRejections(browser) {
     mock.respond=p=>p.mode==='route'?JSON.stringify({slot,request:text}):fenced(codeFor(p.slot,95),p.slot==='obstacle'?{sizeScale:.8,shape:'rect'}:null);
     await startCustom(f,text);await editor(f).waitFor({state:'visible'});assert.equal((await state(f)).project,before.project);assert.deepEqual(mock.calls.slice(count).map(p=>p.mode),['route','slot']);assert.equal(mock.calls[count].artMode,'code');assert.equal(mock.calls[count].current[slot],current);assert.equal(mock.calls.at(-1).current,current);await closeDraft(f);assert.equal((await state(f)).project,before.project);assert.equal((await state(f)).step,8);assert.equal(await f.getByRole('textbox',{name:'바꾸고 싶은 내용'}).last().inputValue(),text);await lastButton(f,'이렇게 바꾸기 ✨');await editor(f).waitFor({state:'visible'});await applyDraft(f);assert.match(JSON.parse((await state(f)).project).slots[slot].code,/fixture 95/);check(`9단계 ${slot}: route 1회→현재 코드 slot 수정→취소·재입력·확인`);
   }
-  const beforeRoute=await state(f);mock.respond=()=>JSON.stringify({unsupported:true});n=mock.calls.length;await customRequest(f,'캐릭터 없애줘');assert.equal(mock.calls.length-n,1);assert.equal((await state(f)).project,beforeRoute.project);check('9단계 엔진 변경 거절·이전 그림 유지');
+  const beforeRoute=await state(f);mock.respond=p=>p.mode==='route'?JSON.stringify({unsupported:true}):'```html\n'+p.baseHtml.replace('</body>','<span hidden>통수정 검증</span></body>')+'\n```';n=mock.calls.length;await customRequest(f,'캐릭터 없애줘');assert.deepEqual(mock.calls.slice(n).map(p=>p.mode||'html'),['route','html']);assert.equal((await state(f)).project,'null');check('9단계 unsupported는 통수정 후 자유 모드 전환');
+  // Independent config-router regression starts from the saved modular fixture.
+  await f.evaluate(value=>{localStorage.removeItem('sherpa-room-999999:sherpa-grade1-practice-v1');freeMode=false;preview(value);},beforeRoute.html);
   mock.respond=()=>JSON.stringify({config:{initialLives:5}});await customRequest(f,'목숨 다섯 개');assert.equal(JSON.parse((await state(f)).project).config.initialLives,5);assert.equal(await editor(f).count(),0);check('9단계 허용 설정 즉시 반영');
   await shot(page,'phase4-safety-and-route.png');await ctx.close();
 }
@@ -207,12 +214,12 @@ async function runUI(browser){
       if(stage===9){await lastButton(f,'직접 적기');await f.getByRole('textbox',{name:'바꾸고 싶은 내용'}).fill('무지개 배경');await lastButton(f,'이렇게 바꾸기 ✨');}
       await ready(f);assert.equal(await f.locator('#conversation .error').count(),0,`stage ${stage}`);await lastButton(f,stage===9?'완성하기 ✓':stage===8?'내 생각 더하기 →':'다음 단계 →');
     }
-    const completed=await state(f),project=JSON.parse(completed.project);assert.equal(completed.progress,'완성');assert.deepEqual(mock.calls.map(x=>[x.mode,x.slot]),[['slot','hero'],['slot','background'],['slot','obstacle'],['slot','item'],['route',undefined]]);assert.equal(project.config.itemsEnabled,true);assert.equal(project.config.speedMultiplier,.5);assert.equal(project.config.initialLives,9);assert.equal(project.config.abilityId,'invincible');assert.equal(project.config.soundPreset,'반짝!');assert.equal(project.assets.item.pixels.length,24);check(`1~9 전체 흐름: AI 코드4칸·router·설정 AI 없음 ${width}×${height}`);
+    await ready(f);const completed=await state(f),project=JSON.parse(completed.project);assert.equal(completed.progress,'자유롭게 고치기');assert.deepEqual(mock.calls.map(x=>[x.mode,x.slot]),[['slot','hero'],['slot','background'],['slot','obstacle'],['slot','item'],['route',undefined]]);assert.equal(project.config.itemsEnabled,true);assert.equal(project.config.speedMultiplier,.5);assert.equal(project.config.initialLives,9);assert.equal(project.config.abilityId,'invincible');assert.equal(project.config.soundPreset,'반짝!');assert.equal(project.assets.item.pixels.length,24);check(`1~9 전체 흐름: AI 코드4칸·router·설정 AI 없음 ${width}×${height}`);
     await shot(page,`phase4-complete-${width}x${height}.png`);if(await f.locator('#preview-tab').isVisible())await f.locator('#preview-tab').click();
     const controls=await f.locator('.play-controls button').evaluateAll(buttons=>buttons.map(b=>{const r=b.getBoundingClientRect();return{id:b.id,x:r.x,y:r.y,right:r.right,width:r.width};}));assert.equal(controls.length,3);assert(Math.max(...controls.map(x=>x.y))-Math.min(...controls.map(x=>x.y))<2);for(let i=1;i<controls.length;i++)assert(controls[i].x>=controls[i-1].right);check(`게임 버튼 한 줄 ${width}×${height}`);
     await f.locator('#expand-game').click();await f.waitForFunction(()=>document.querySelector('#preview-panel').classList.contains('expanded-game'));await shot(page,`phase4-expanded-${width}x${height}.png`);await f.locator('#expand-game').click();
     const game=await(await f.locator('#game').elementHandle()).contentFrame();await page.waitForTimeout(350);await f.locator('#jump').click();await game.waitForFunction(()=>document.getElementById('status').textContent.includes('진행 중'));await f.waitForFunction(()=>!document.getElementById('special').disabled);await f.locator('#special').click();await f.waitForFunction(()=>document.getElementById('special').dataset.state==='active');check(`크게 보기·게임 점프·특수 능력 ${width}×${height}`);
-    await page.reload();await page.waitForFunction(()=>!document.getElementById('next').disabled);for(let i=0;i<4;i++)await page.locator('#next').click();const rf=await(await page.locator('#practice').elementHandle()).contentFrame();await rf.waitForFunction(()=>document.getElementById('progress').textContent==='완성');assert.equal((await state(rf)).html,completed.html);assert.equal((await state(rf)).project,completed.project);check(`로컬 이어하기: 비트맵·코드·설정 정확히 보존 ${width}×${height}`);
+    await page.reload();await page.waitForFunction(()=>!document.getElementById('next').disabled);for(let i=0;i<4;i++)await page.locator('#next').click();const rf=await(await page.locator('#practice').elementHandle()).contentFrame();await rf.waitForFunction(()=>document.getElementById('progress').textContent==='자유롭게 고치기');assert.equal((await state(rf)).html,completed.html);assert.equal((await state(rf)).project,completed.project);check(`로컬 이어하기: 비트맵·코드·설정 정확히 보존 ${width}×${height}`);
     if(width===1280){const dp=page.waitForEvent('download');await rf.locator('#download').click();const download=await dp;report.download=path.join(out,'내려받은-4차-모듈화-게임.html');await download.saveAs(report.download);assert.equal(fs.readFileSync(report.download,'utf8'),completed.html);}
     await ctx.close();
   }

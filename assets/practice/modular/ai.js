@@ -103,6 +103,13 @@
     }
     return payload;
   }
+  function checkConfigRequest(candidate, intent) {
+    // A constant setting cannot implement a timed/progressive/conditional rule.
+    // Keep the router first, then reject a lossy interpretation as unsupported.
+    if(candidate.config && /점점|서서히|갈수록|마다|시간이|점수가|모으면|얻으면|획득하면|gradual|over time/i.test(intent.request||'')) {
+      const error=Error(unsupportedMessage);error.code='UNSUPPORTED_CHANGE';throw error;
+    }
+  }
   async function apply(project, intent, signal, onProgress) {
     let payload = intent.mode === 'route' ? routePayload(project,intent) : slotPayload(project,intent);
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -117,7 +124,7 @@
         if (candidate.unsupported) {
           const error = Error(unsupportedMessage); error.code = 'UNSUPPORTED_CHANGE'; throw error;
         }
-        if (candidate.config) return global.SherpaProject.withConfig(project,candidate.config);
+        if (candidate.config) {checkConfigRequest(candidate,intent);return global.SherpaProject.withConfig(project,candidate.config);}
         // A route is called once. A rejected drawing retries only that slot.
         payload = slotPayload(project,{...intent,slot:candidate.slot});
         const checked = await global.SherpaSlotSafety.validate(candidate.slot,candidate.code);
@@ -189,7 +196,7 @@
     const payload = {...routePayload(project,intent),artMode:'code'};
     const response = await receive(payload,signal,onProgress), candidate = parseRoute(response.raw);
     if (candidate.unsupported) { const error = Error(unsupportedMessage); error.code='UNSUPPORTED_CHANGE'; throw error; }
-    if (candidate.config) return {project:global.SherpaProject.withConfig(project,candidate.config)};
+    if (candidate.config) {checkConfigRequest(candidate,intent);return {project:global.SherpaProject.withConfig(project,candidate.config)};}
     if (candidate.slot === 'background' && candidate.code) return {project:await apply(project,{mode:'slot',slot:'background',request:intent.request,candidate},signal,onProgress)};
     if (!candidate.request || !['hero','obstacle','item'].includes(candidate.slot)) fail();
     const nextIntent={mode:'slot',slot:candidate.slot,request:candidate.request,redraw:true};
