@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
-const dir=path.resolve(__dirname,'../assets/practice/modular'),out=path.resolve(__dirname,'../../../85_공룡3_모듈화/4차캡처');
+const dir=path.resolve(__dirname,'../assets/practice/modular'),out=process.env.MODULAR_CAPTURE_DIR||path.resolve(__dirname,'../../../85_공룡3_모듈화/4차캡처');
 const report={scope:'offline mock SSE; current-code and commit boundaries',checks:[]};let calls=[],respond,renderCalls=[];
 const art={palette:['#123456'],pixels:Array(47).fill('0'.repeat(44))};
 const code=slot=>'function '+({hero:'drawHero',obstacle:'drawObstacle',item:'drawItem',background:'drawBackground'}[slot])+'(ctx,v){ctx.fillRect(0,0,v.w,v.h);}';

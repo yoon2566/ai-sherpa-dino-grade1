@@ -1,4 +1,5 @@
 .grade1-pixel-editor {
+  --pixel-palette-min: 30px;
   box-sizing: border-box;
   width: min(510px, calc(100% - 16px));
   max-height: calc(100dvh - 16px);
@@ -41,7 +42,7 @@
   font-size: 15px;
   cursor: pointer;
 }
-.grade1-pixel-editor .pixel-palette button { min-height: 30px; padding: 0; }
+.grade1-pixel-editor .pixel-palette button { min-height: var(--pixel-palette-fit, var(--pixel-palette-min)); padding: 0; }
 .grade1-pixel-editor .pixel-brushes button { padding-inline: 4px; font-size: 14px; white-space: nowrap; }
 @container (max-width: 190px) {
   .pixel-brushes { grid-template-columns: minmax(0, 1fr); }
@@ -51,17 +52,26 @@
 .grade1-pixel-editor .pixel-message { color: #9e352a; }
 .grade1-pixel-editor .pixel-message:empty { display: none; }
 .pixel-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.pixel-actions button { white-space: nowrap; }
 .grade1-pixel-editor .pixel-apply { background: #09863f; color: white; padding-inline: 16px; font-weight: 700; }
 @media(pointer:coarse){
-  .grade1-pixel-editor{width:min(590px,calc(100% - 16px))}
+  .grade1-pixel-editor{width:min(590px,calc(100% - 16px));--pixel-palette-min:44px}
   .pixel-workspace{grid-template-columns:minmax(0,1fr) 152px;gap:12px}
   .grade1-pixel-editor button,.grade1-pixel-editor .pixel-palette button{min-width:44px;min-height:44px}
-  .pixel-actions{flex-wrap:wrap;padding-top:8px}
+  .grade1-pixel-editor .pixel-palette button{min-height:var(--pixel-palette-fit,var(--pixel-palette-min))}
+  .pixel-actions{padding-top:8px}
 }
 .grade1-pixel-editor.pixel-detailed { width: min(760px, calc(100% - 16px)); }
 .pixel-detailed .pixel-workspace { grid-template-columns: minmax(0, 1fr) 200px; }
 .pixel-detailed canvas { max-width: 100%; height: auto; }
+@media (max-height: 700px) {
+  .grade1-pixel-editor { padding: 12px; }
+  .pixel-actions { padding-top: 0; }
+}
 @media (max-width: 450px) {
   .pixel-workspace, .pixel-detailed .pixel-workspace { grid-template-columns: minmax(0, 1fr) 90px; gap: 8px; }
   .grade1-pixel-editor button { font-size: 14px; min-height: 32px; }
+  .pixel-actions { flex-wrap: wrap; }
+  .pixel-actions button { font-size: 13px; padding-inline: 6px; }
+  .grade1-pixel-editor .pixel-apply { padding-inline: 10px; }
 }

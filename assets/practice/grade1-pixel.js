@@ -156,21 +156,21 @@
       + '<button type="button" class="pixel-undo">되돌리기</button>'
       + '<button type="button" class="pixel-clear">모두 지우기</button></div></div>'
       + '<p class="pixel-message" role="status"></p><div class="pixel-actions">'
-      + '<button type="button" class="pixel-cancel">취소</button>'
+      + '<button type="button" class="pixel-cancel">다른 캐릭터 고르기</button>'
       + '<button type="button" class="pixel-apply">이 캐릭터로 달리기</button></div>';
     const find = selector => dialog.querySelector(selector);
+    find('.pixel-cancel').textContent = {hero:'다른 캐릭터 고르기', obstacle:'다른 장애물 고르기', item:'다른 선물 고르기'}[slot] || '다른 캐릭터 고르기';
     if (ai) {
       find('h2').textContent = description
         ? {hero:'내 캐릭터 그리기', obstacle:'내 장애물 그리기', item:'내 선물 그리기'}[slot]
         : {hero:'AI가 그린 밑그림이에요', obstacle:'AI가 그린 장애물이에요', item:'AI가 그린 선물이에요'}[slot];
       find('p').textContent = description || '마음에 안 드는 칸을 고쳐 봐요. 다 되면 아래 버튼을 눌러요.';
-      find('.pixel-cancel').textContent = onRetry ? '다시 그려줘' : '취소';
       find('.pixel-apply').textContent = {hero:'이 캐릭터로 달리기 ✓', obstacle:'이 장애물로 정하기 ✓', item:'이 선물로 정하기 ✓'}[slot];
-      const close = document.createElement('button');
-      close.type = 'button'; close.className = 'pixel-close'; close.textContent = '✕';
-      close.setAttribute('aria-label', '닫기'); close.style.float = 'right';
-      close.onclick = () => { if (!applying) dialog.close(); };
-      dialog.prepend(close);
+      if (onRetry) {
+        const retry = document.createElement('button');
+        retry.type = 'button'; retry.className = 'pixel-retry'; retry.textContent = '다시 그려줘';
+        find('.pixel-apply').before(retry);
+      }
     }
     const canvas = find('canvas'), ctx = canvas.getContext('2d');
     canvas.style.aspectRatio = width + ' / ' + height;
@@ -278,8 +278,11 @@
     find('.pixel-clear').onclick = () => { const previous = pixels.join(''); pixels.fill('0'); remember(previous); refresh(); };
     find('.pixel-cancel').onclick = () => {
       if (applying) return;
-      if (ai && onRetry) { outcome = 'retry'; const value = artwork(); dialog.close(); onRetry(value); }
-      else dialog.close();
+      dialog.close();
+    };
+    if (find('.pixel-retry')) find('.pixel-retry').onclick = () => {
+      if (applying) return;
+      outcome = 'retry'; const value = artwork(); dialog.close(); onRetry(value);
     };
     applyButton.onclick = async () => {
       if (applying) return;
@@ -307,8 +310,44 @@
       const rect = dialog.getBoundingClientRect();
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
     });
-    dialog.addEventListener('close', () => { dialog.remove(); if (outcome === 'cancel') onCancel?.(); }, {once:true});
+    // Measure the actual heading/actions (including loaded fonts and messages), so
+    // the bitmap keeps its proportions inside both standalone and lesson views.
+    function fitCanvas() {
+      if (!dialog.open) return;
+      const workspace = find('.pixel-workspace'), style = getComputedStyle(dialog);
+      const outer = ['paddingTop','paddingBottom','borderTopWidth','borderBottomWidth']
+        .reduce((sum, key) => sum + parseFloat(style[key]), 0);
+      const fixed = Array.from(dialog.children).filter(node => node !== workspace).reduce((sum, node) => {
+        const css = getComputedStyle(node);
+        if (css.display === 'none') return sum;
+        return sum + node.getBoundingClientRect().height + parseFloat(css.marginTop) + parseFloat(css.marginBottom);
+      }, outer);
+      const roomWidth = workspace.clientWidth - find('.pixel-tools').getBoundingClientRect().width
+        - parseFloat(getComputedStyle(workspace).columnGap);
+      const roomHeight = Math.max(1, window.innerHeight - 16 - fixed);
+      const tools = find('.pixel-tools'), colorGrid = find('.pixel-palette'), gridStyle = getComputedStyle(colorGrid);
+      const rows = Math.ceil(colorGrid.children.length / gridStyle.gridTemplateColumns.split(' ').length);
+      const otherTools = Array.from(tools.children).filter(node => node !== colorGrid)
+        .reduce((sum, node) => sum + node.getBoundingClientRect().height, 0)
+        + (tools.children.length - 1) * parseFloat(getComputedStyle(tools).gap);
+      const minimumColorHeight = find('.pixel-message').textContent ? 20 : 28;
+      const colorHeight = Math.min(parseFloat(style.getPropertyValue('--pixel-palette-min')),
+        Math.max(minimumColorHeight, (roomHeight - otherTools - (rows - 1) * parseFloat(gridStyle.rowGap)) / rows));
+      dialog.style.setProperty('--pixel-palette-fit', Math.floor(colorHeight * 100) / 100 + 'px');
+      const legacyLimit = width === 16 && height === 16 ? Math.min(320, window.innerHeight * .56) : Infinity;
+      const fittedWidth = Math.max(1, Math.floor(Math.min(roomWidth, roomHeight * width / height, legacyLimit) * 100) / 100);
+      canvas.style.width = fittedWidth + 'px';
+      canvas.style.height = fittedWidth * height / width + 'px';
+    }
+    const sizeObserver = new ResizeObserver(fitCanvas);
+    dialog.addEventListener('close', () => {
+      sizeObserver.disconnect(); window.removeEventListener('resize', fitCanvas);
+      dialog.remove(); if (outcome === 'cancel') onCancel?.();
+    }, {once:true});
     document.body.append(dialog); selectColor(1); selectBrush(3); refresh(); dialog.showModal();
+    fitCanvas(); sizeObserver.observe(dialog);
+    for (const node of dialog.children) if (!node.classList.contains('pixel-workspace')) sizeObserver.observe(node);
+    window.addEventListener('resize', fitCanvas);
     return dialog;
   }
   window.grade1Pixel = {read, remove, apply, open};
